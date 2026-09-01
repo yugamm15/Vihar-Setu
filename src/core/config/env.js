@@ -1,0 +1,25 @@
+// Safe environment configuration loader with production fallback safety
+
+const DEFAULT_CONFIG = {
+  SUPABASE_URL: 'https://your-supabase-project-id.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-anon-key-here',
+  GOOGLE_MAPS_API_KEY: '',
+  APP_ENV: 'development',
+};
+
+// In React Native with Babel/Metro, env variables can be loaded or configured
+export const ENV = {
+  SUPABASE_URL: process.env.SUPABASE_URL || DEFAULT_CONFIG.SUPABASE_URL,
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || DEFAULT_CONFIG.SUPABASE_ANON_KEY,
+  GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || DEFAULT_CONFIG.GOOGLE_MAPS_API_KEY,
+  APP_ENV: process.env.APP_ENV || DEFAULT_CONFIG.APP_ENV,
+};
+
+export const isSupabaseConfigured = () => {
+  return (
+    ENV.SUPABASE_URL &&
+    !ENV.SUPABASE_URL.includes('your-supabase-project-id') &&
+    ENV.SUPABASE_ANON_KEY &&
+    !ENV.SUPABASE_ANON_KEY.includes('your-anon-key-here')
+  );
+};

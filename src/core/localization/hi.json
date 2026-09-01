@@ -1,0 +1,98 @@
+{
+  "app_name": "विहार सेतु",
+  "app_tagline": "पूज्य साध्वीजी विहार सुरक्षा एवं निगरानी मंच",
+  "parent_group": "जिनार्य विहार सेवा",
+  "common": {
+    "continue": "आगे बढ़ें",
+    "save": "सुरक्षित करें",
+    "cancel": "रद्द करें",
+    "confirm": "पुष्टि करें",
+    "yes": "हाँ",
+    "no": "नहीं",
+    "loading": "लोड हो रहा है...",
+    "retry": "पुनः प्रयास करें",
+    "error": "त्रुटि",
+    "success": "सफल",
+    "logout": "लॉग आउट",
+    "offline_notice": "ऑफ़लाइन मोड सक्रिय"
+  },
+  "splash": {
+    "title": "विहार सेतु",
+    "subtitle": "सुरक्षित, समर्पित और पावन विहार सेवा",
+    "loading_session": "सुरक्षित सत्र की जाँच हो रही है..."
+  },
+  "onboarding": {
+    "slide1_title": "पावन सुरक्षा",
+    "slide1_desc": "साध्वीजी भगवंतों के विहार के दौरान बहनों की पूर्ण सुरक्षा और लाइव निगरानी।",
+    "slide2_title": "त्वरित आपातकालीन सहायता (SOS)",
+    "slide2_desc": "एक ही स्पर्श से सुरक्षा प्रशासकों और नजदीकी सेवकों को तुरंत अलर्ट।",
+    "slide3_title": "मार्ग सुरक्षा एवं मार्गदर्शन",
+    "slide3_desc": "मार्ग से विचलन, लंबे समय तक ठहराव और बैटरी की स्थिति पर निरंतर ध्यान।",
+    "get_started": "आरंभ करें",
+    "select_language": "पसंदीदा भाषा चुनें"
+  },
+  "auth": {
+    "login_title": "सेवक एवं प्रशासक लॉगिन",
+    "login_subtitle": "ओटीपी प्राप्त करने के लिए अपना पंजीकृत मोबाइल नंबर दर्ज करें।",
+    "phone_label": "मोबाइल नंबर",
+    "phone_placeholder": "98765 43210",
+    "send_otp": "सत्यापन कोड भेजें",
+    "invalid_phone": "कृपया मान्य 10 अंकों का मोबाइल नंबर दर्ज करें।",
+    "otp_title": "ओटीपी सत्यापन",
+    "otp_subtitle": "+91 पर भेजे गए 6-अंकों का कोड दर्ज करें",
+    "verify_otp": "सत्यापित करें और आगे बढ़ें",
+    "resend_code": "पुनः कोड भेजें",
+    "resend_in": "{{seconds}} सेकंड में पुनः भेजें",
+    "invalid_otp": "कृपया मान्य 6-अंकों का ओटीपी दर्ज करें।",
+    "otp_failed": "ओटीपी सत्यापन विफल रहा। पुनः प्रयास करें।",
+    "demo_mode_tip": "परीक्षण के लिए सेटअप गाइड में दिए गए नंबर का उपयोग करें।"
+  },
+  "profile_setup": {
+    "title": "अपनी प्रोफ़ाइल पूर्ण करें",
+    "subtitle": "विहार के दौरान सुरक्षा और संपर्क हेतु अपना विवरण भरें।",
+    "full_name": "पूरा नाम",
+    "full_name_placeholder": "उदा. श्रीमती रेखाबेन शाह",
+    "city": "शहर / गाँव",
+    "city_placeholder": "उदा. अहमदाबाद",
+    "emergency_contact_name": "आपातकालीन संपर्क व्यक्ति",
+    "emergency_contact_name_placeholder": "परिवारजन / संघ अग्रणी",
+    "emergency_contact_phone": "आपातकालीन संपर्क नंबर",
+    "emergency_contact_phone_placeholder": "10 अंकों का मोबाइल नंबर",
+    "blood_group": "रक्त समूह (Blood Group)",
+    "blood_group_placeholder": "उदा. B+",
+    "preferred_language": "पसंदीदा भाषा",
+    "complete_button": "प्रोफ़ाइल सहेजें"
+  },
+  "roles": {
+    "sevak": "विहार सेविका",
+    "admin": "सुरक्षा प्रशासक",
+    "super_admin": "मुख्य व्यवस्थापक"
+  },
+  "sevak": {
+    "welcome": "जय जिनेन्द्र",
+    "active_vihar": "सक्रिय विहार",
+    "start_new_vihar": "नया विहार प्रारंभ करें",
+    "no_active_vihar": "वर्तमान में कोई सक्रिय विहार नहीं है।",
+    "history": "विहार इतिहास",
+    "sos_button": "SOS आपातकालीन सहायता",
+    "safe_status": "स्थिति: सुरक्षित (SAFE)",
+    "warning_status": "स्थिति: मार्ग चेतावनी (WARNING)",
+    "emergency_status": "स्थिति: आपातकाल सक्रिय (EMERGENCY)"
+  },
+  "admin": {
+    "dashboard_title": "सुरक्षा नियंत्रण केंद्र",
+    "active_vihars": "सक्रिय विहार",
+    "safe_count": "सुरक्षित",
+    "warning_count": "चेतावनी",
+    "emergency_count": "आपातकाल",
+    "live_map": "लाइव मैप",
+    "reports": "रिपोर्ट"
+  },
+  "super_admin": {
+    "dashboard_title": "मुख्य प्रशासनिक केंद्र",
+    "user_management": "उपयोगकर्ता प्रबंधन",
+    "system_config": "सिस्टम सेटिंग्स",
+    "audit_logs": "ऑडिट लॉग्स",
+    "analytics": "विश्लेषण"
+  }
+}

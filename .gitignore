@@ -1,0 +1,41 @@
+# React Native & Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment & Secrets (NEVER push real keys to GitHub)
+.env
+.env.*
+!.env.example
+*.pem
+*.keystore
+!android/app/debug.keystore
+
+# Large Zips & Binaries
+*.zip
+*.tar.gz
+*.7z
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/.cxx/
+android/app/.cxx/
+*.apk
+*.aab
+local.properties
+
+# Metro cache
+.metro-health-check*
+.metro/
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

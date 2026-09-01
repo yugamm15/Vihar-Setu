@@ -1,0 +1,98 @@
+{
+  "app_name": "વિહાર સેતુ",
+  "app_tagline": "પૂજ્ય સાધ્વીજી વિહાર સુરક્ષા અને સહાય મંચ",
+  "parent_group": "જિનાર્ય વિહાર સેવા",
+  "common": {
+    "continue": "આગળ વધો",
+    "save": "સાચવો",
+    "cancel": "રદ કરો",
+    "confirm": "પુષ્ટિ કરો",
+    "yes": "હા",
+    "no": "ના",
+    "loading": "લોડ થઈ રહ્યું છે...",
+    "retry": "ફરી પ્રયાસ કરો",
+    "error": "ભૂલ",
+    "success": "સફળ",
+    "logout": "લૉગ આઉટ",
+    "offline_notice": "ઑફલાઇન મોડ સક્રિય"
+  },
+  "splash": {
+    "title": "વિહાર સેતુ",
+    "subtitle": "સુરક્ષિત, સમર્પિત અને પાવન વિહાર સેવા",
+    "loading_session": "સુરક્ષિત સત્ર ચકાસી રહ્યા છીએ..."
+  },
+  "onboarding": {
+    "slide1_title": "પાવન સુરક્ષા",
+    "slide1_desc": "સાધ્વીજી ભગવંતોના વિહાર દરમિયાન બહેનોની પૂર્ણ સુરક્ષા અને જીવંત મોનિટરિંગ.",
+    "slide2_title": "ત્વરિત કટોકટી સહાય (SOS)",
+    "slide2_desc": "એક જ સ્પર્શથી વહીવટી સંયોજકો અને નજીકના સેવકોને તાત્કાલિક સહાય સંદેશ.",
+    "slide3_title": "માર્ગ સુરક્ષા અને માર્ગદર્શન",
+    "slide3_desc": "માર્ગથી વિચલન, લાંબા સમય સુધી રોકાણ અને બેટરીની સ્થિતિનું સ્વયંસંચાલિત ધ્યાન.",
+    "get_started": "શરૂ કરો",
+    "select_language": "પસંદગીની ભાષા પસંદ કરો"
+  },
+  "auth": {
+    "login_title": "સેવક અને સંયોજક લૉગિન",
+    "login_subtitle": "ઓટીપી મેળવવા માટે આપનો રજિસ્ટર્ડ મોબાઈલ નંબર દાખલ કરો.",
+    "phone_label": "મોબાઈલ નંબર",
+    "phone_placeholder": "98765 43210",
+    "send_otp": "વેરિફિકેશન કોડ મેળવો",
+    "invalid_phone": "કૃપા કરીને માન્ય 10 અંકનો મોબાઈલ નંબર દાખલ કરો.",
+    "otp_title": "ઓટીપી વેરિફિકેશન",
+    "otp_subtitle": "+91 પર મોકલેલ 6-અંકનો કોડ દાખલ કરો",
+    "verify_otp": "ચકાસો અને આગળ વધો",
+    "resend_code": "ફરીથી કોડ મોકલો",
+    "resend_in": "{{seconds}} સેકન્ડમાં ફરી મોકલો",
+    "invalid_otp": "કૃપા કરીને માન્ય 6-અંકનો ઓટીપી દાખલ કરો.",
+    "otp_failed": "ઓટીપી ચકાસણી નિષ્ફળ. ફરી પ્રયાસ કરો.",
+    "demo_mode_tip": "ટેસ્ટિંગ માટે સેટઅપ ગાઈડમાં દર્શાવેલ નંબર વાપરો."
+  },
+  "profile_setup": {
+    "title": "આપની પ્રોફાઈલ પૂર્ણ કરો",
+    "subtitle": "વિહાર દરમિયાન આપની સુરક્ષા અને સંપર્ક માટે વિગતો ભરો.",
+    "full_name": "પૂરું નામ",
+    "full_name_placeholder": "દા.ત. શ્રીમતી રેખાબેન શાહ",
+    "city": "શહેર / ગામ",
+    "city_placeholder": "દા.ત. અમદાવાદ",
+    "emergency_contact_name": "કટોકટી સંપર્ક વ્યક્તિ",
+    "emergency_contact_name_placeholder": "પરિવારજન / સંઘ અગ્રણી",
+    "emergency_contact_phone": "કટોકટી સંપર્ક નંબર",
+    "emergency_contact_phone_placeholder": "10 અંકનો મોબાઈલ નંબર",
+    "blood_group": "બ્લડ ગ્રુપ",
+    "blood_group_placeholder": "દા.ત. B+",
+    "preferred_language": "પસંદગીની ભાષા",
+    "complete_button": "પ્રોફાઈલ સંગ્રહ કરો"
+  },
+  "roles": {
+    "sevak": "વિહાર સેવિકા",
+    "admin": "સુરક્ષા સંયોજક",
+    "super_admin": "મુખ્ય સંચાલક"
+  },
+  "sevak": {
+    "welcome": "જય જિનેન્દ્ર",
+    "active_vihar": "ચાલુ વિહાર",
+    "start_new_vihar": "નવો વિહાર શરૂ કરો",
+    "no_active_vihar": "હાલમાં કોઈ સક્રિય વિહાર નથી.",
+    "history": "વિહાર ઇતિહાસ",
+    "sos_button": "SOS કટોકટી સહાય",
+    "safe_status": "સ્થિતિ: સુરક્ષિત (SAFE)",
+    "warning_status": "સ્થિતિ: માર્ગ ચેતવણી (WARNING)",
+    "emergency_status": "સ્થિતિ: કટોકટી સક્રિય (EMERGENCY)"
+  },
+  "admin": {
+    "dashboard_title": "સુરક્ષા કંટ્રોલ સેન્ટર",
+    "active_vihars": "સક્રિય વિહારો",
+    "safe_count": "સુરક્ષિત",
+    "warning_count": "ચેતવણી",
+    "emergency_count": "કટોકટી",
+    "live_map": "જીવંત નકશો",
+    "reports": "અહેવાલો"
+  },
+  "super_admin": {
+    "dashboard_title": "મુખ્ય વહીવટી સેન્ટર",
+    "user_management": "વપરાશકર્તા વ્યવસ્થાપન",
+    "system_config": "સિસ્ટમ સેટિંગ્સ",
+    "audit_logs": "ઓડિટ લૉગ્સ",
+    "analytics": "વિશ્લેષણ"
+  }
+}
