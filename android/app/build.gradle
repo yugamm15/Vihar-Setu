@@ -61,8 +61,3 @@ dependencies {
 }
 
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
-try {
-    apply plugin: 'com.google.gms.google-services'
-} catch (Exception e) {
-    println("google-services plugin skipped: " + e.getMessage())
-}

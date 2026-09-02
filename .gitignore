@@ -11,6 +11,8 @@ yarn-error.log*
 *.pem
 *.keystore
 !android/app/debug.keystore
+google-services.json
+
 
 # Large Zips & Binaries
 *.zip
