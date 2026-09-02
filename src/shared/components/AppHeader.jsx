@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../core/theme/colors';
 import { typography } from '../../core/theme/typography';
@@ -10,6 +10,7 @@ export const AppHeader = ({
   title,
   subtitle = null,
   showBack = false,
+  showLogo = false,
   onBack = () => {},
   rightElement = null,
   style = {},
@@ -26,7 +27,7 @@ export const AppHeader = ({
       ]}
     >
       <View style={styles.leftRow}>
-        {showBack && (
+        {showBack ? (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={onBack}
@@ -35,7 +36,15 @@ export const AppHeader = ({
           >
             <ArrowLeftIcon size={22} color={colors.warmIvory} />
           </TouchableOpacity>
-        )}
+        ) : showLogo ? (
+          <View style={styles.logoBadge}>
+            <Image
+              source={require('../../assets/images/logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+          </View>
+        ) : null}
         <View style={styles.titleContainer}>
           <Text style={styles.title} numberOfLines={1}>
             {title}
@@ -72,17 +81,38 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     padding: spacing.xs,
   },
+  logoBadge: {
+    marginRight: spacing.sm,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  headerLogo: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
   titleContainer: {
     flex: 1,
   },
   title: {
     ...typography.h3,
     color: colors.warmIvory,
+    fontSize: 18,
+    fontWeight: '700',
   },
   subtitle: {
     ...typography.caption,
     color: colors.goldMuted,
-    marginTop: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
   rightElement: {
     marginLeft: spacing.md,

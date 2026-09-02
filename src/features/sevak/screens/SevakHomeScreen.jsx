@@ -98,6 +98,7 @@ export const SevakHomeScreen = ({ navigation }) => {
       <AppHeader
         title={t('sevak.welcome')}
         subtitle={profile?.full_name || 'Vihar Sevika'}
+        showLogo={true}
         rightElement={
           <TouchableOpacity
             onPress={logout}

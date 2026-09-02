@@ -61,12 +61,12 @@ export const PrimaryButton = ({
 
 const styles = StyleSheet.create({
   button: {
-    height: 52,
+    height: 48,
     borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-    marginVertical: spacing.sm,
+    marginVertical: spacing.xs,
   },
   contentRow: {
     flexDirection: 'row',

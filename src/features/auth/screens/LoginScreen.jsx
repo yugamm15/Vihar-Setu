@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TouchableOpacity,
   StatusBar,
+  Image,
+  TouchableOpacity,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../core/theme/colors';
@@ -15,43 +17,88 @@ import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { CustomTextInput } from '../../../shared/components/CustomTextInput';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
-import { JainEmblemIcon } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../hooks/useAuthStore';
 import { t } from '../../../core/localization/i18n';
 
 export const LoginScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { requestOtp, isLoading, error } = useAuthStore();
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [phoneError, setPhoneError] = useState('');
+  const scrollViewRef = useRef(null);
+  const { requestOtp, loginWithPassword, isLoading, error } = useAuthStore();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  const validatePhone = (num) => {
-    const cleaned = num.replace(/[^0-9]/g, '');
-    if (cleaned.length !== 10) {
+  // Dynamic Keyboard Listener
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const validateEmail = (val) => {
+    const trimmed = val.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
       return false;
     }
-    return cleaned;
+    return trimmed;
   };
 
-  const handleSendOtp = async () => {
-    setPhoneError('');
-    const validNumber = validatePhone(phoneNumber);
-    if (!validNumber) {
-      setPhoneError(t('auth.invalid_phone'));
+  const handleAction = async () => {
+    setLocalError('');
+    const validEmail = validateEmail(email);
+    if (!validEmail) {
+      setLocalError(t('auth.invalid_email'));
       return;
     }
 
-    const fullPhone = `+91${validNumber}`;
-    const success = await requestOtp(fullPhone);
+    // Password login for Administrator / Super Admin
+    if (isAdminMode) {
+      if (!password.trim()) {
+        setLocalError('Please enter your administrator password.');
+        return;
+      }
 
-    if (success) {
-      navigation.navigate('OtpVerification', { phone: fullPhone });
+      const success = await loginWithPassword(validEmail, password);
+      if (!success) {
+        setLocalError('Invalid email or password. Please try again.');
+      }
+      return;
     }
-  };
 
-  const handleQuickFill = (testNum) => {
-    setPhoneNumber(testNum);
-    setPhoneError('');
+    // Guard: If in Sevak OTP mode and entered Super Admin email
+    if (!isAdminMode && validEmail === 'bhemanibhemani@gmail.com') {
+      setLocalError(
+        'This email belongs to the Super Admin account. Please switch to "Administrator / Super Admin Login" below, or enter a correct Sevak email address.'
+      );
+      return;
+    }
+
+    // Standard Email OTP request for Sevaks
+    const success = await requestOtp(validEmail);
+    if (success) {
+      navigation.navigate('OtpVerification', { email: validEmail });
+    }
   };
 
   return (
@@ -61,7 +108,7 @@ export const LoginScreen = ({ navigation }) => {
     >
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
 
-      {/* Header Banner with Safe Area & generous padding */}
+      {/* Header Banner */}
       <View
         style={[
           styles.topBanner,
@@ -72,7 +119,11 @@ export const LoginScreen = ({ navigation }) => {
         ]}
       >
         <View style={styles.emblemWrapper}>
-          <JainEmblemIcon size={68} color={colors.gold} secondaryColor={colors.warmIvory} />
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
         <Text style={styles.bannerTitle}>{t('app_name')}</Text>
         <Text style={styles.bannerSubtitle}>{t('parent_group')}</Text>
@@ -80,63 +131,116 @@ export const LoginScreen = ({ navigation }) => {
 
       {/* Main Login Card */}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        ref={scrollViewRef}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : spacing.lg },
+        ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.cardTitle}>{t('auth.login_title')}</Text>
-          <Text style={styles.cardSubtitle}>{t('auth.login_subtitle')}</Text>
+          <View style={styles.cardHeaderRow}>
+            <View>
+              <Text style={styles.cardTitle}>
+                {isAdminMode
+                  ? 'Super Admin Login'
+                  : t('auth.login_title')}
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                {isAdminMode
+                  ? 'Enter your Super Admin credentials to access console'
+                  : t('auth.login_subtitle')}
+              </Text>
+            </View>
 
+            {isAdminMode && (
+              <View style={styles.superBadge}>
+                <Text style={styles.superBadgeText}>SUPER ADMIN CONSOLE</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Email Input */}
           <CustomTextInput
-            label={t('auth.phone_label')}
-            placeholder={t('auth.phone_placeholder')}
-            value={phoneNumber}
+            label={t('auth.email_label')}
+            placeholder={t('auth.email_placeholder')}
+            value={email}
             onChangeText={(text) => {
-              setPhoneNumber(text);
-              if (phoneError) setPhoneError('');
+              setEmail(text);
+              if (localError) setLocalError('');
             }}
-            keyboardType="number-pad"
-            maxLength={10}
-            error={phoneError || error}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={localError || error}
             leftElement={
-              <View style={styles.countryCodeBadge}>
-                <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
+              <View style={styles.emailIconBadge}>
+                <Text style={styles.emailIconText}>✉️</Text>
               </View>
             }
           />
 
+          {/* Password Input (Shown for Admin Mode) */}
+          {isAdminMode && (
+            <CustomTextInput
+              label="Super Admin Password"
+              placeholder="Enter password"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (localError) setLocalError('');
+              }}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              leftElement={
+                <View style={styles.emailIconBadge}>
+                  <Text style={styles.emailIconText}>🔒</Text>
+                </View>
+              }
+              rightElement={
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.showPassText}>
+                    {showPassword ? 'Hide 👁️' : 'Show 👁️'}
+                  </Text>
+                </TouchableOpacity>
+              }
+            />
+          )}
+
+          {/* Submit Button */}
           <PrimaryButton
-            title={t('auth.send_otp')}
-            onPress={handleSendOtp}
+            title={
+              isAdminMode
+                ? 'Login as Super Admin'
+                : t('auth.send_otp')
+            }
+            onPress={handleAction}
             loading={isLoading}
             variant="saffron"
             style={styles.actionBtn}
           />
 
-          {/* Quick Demo Test Buttons */}
-          <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>Quick Test Credentials:</Text>
-            <View style={styles.demoChipsRow}>
-              <TouchableOpacity
-                onPress={() => handleQuickFill('9876543210')}
-                style={styles.demoChip}
-              >
-                <Text style={styles.demoChipText}>Sevak (9876543210)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleQuickFill('9876543211')}
-                style={styles.demoChip}
-              >
-                <Text style={styles.demoChipText}>Admin (9876543211)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleQuickFill('9876543212')}
-                style={styles.demoChip}
-              >
-                <Text style={styles.demoChipText}>Super Admin (9876543212)</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {/* Toggle between Sevak OTP and Super Admin Password Login */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setIsAdminMode(!isAdminMode);
+              setLocalError('');
+            }}
+            style={styles.toggleModeBtn}
+          >
+            <Text style={styles.toggleModeText}>
+              {isAdminMode
+                ? '← Switch to Sevak Email OTP Login'
+                : '🔑 Super Admin Password Login'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -156,12 +260,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   emblemWrapper: {
-    marginBottom: spacing.sm,
-    padding: spacing.xs + 2,
+    marginBottom: spacing.xs,
+    padding: 4,
     borderRadius: 9999,
-    backgroundColor: 'rgba(201, 164, 76, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderWidth: 1.5,
-    borderColor: 'rgba(201, 164, 76, 0.35)',
+    borderColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  logoImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
   bannerTitle: {
     ...typography.h2,
@@ -174,8 +288,8 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.goldLight,
     marginTop: 3,
-    textTransform: 'uppercase',
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
   scrollContent: {
     padding: spacing.lg,
@@ -190,6 +304,12 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     marginTop: -spacing.lg,
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
   cardTitle: {
     ...typography.h3,
     color: colors.deepMaroon,
@@ -198,52 +318,45 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
-    marginBottom: spacing.lg,
+    maxWidth: 240,
   },
-  countryCodeBadge: {
+  superBadge: {
+    backgroundColor: colors.deepMaroon,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  superBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.warmIvory,
+    letterSpacing: 0.5,
+  },
+  emailIconBadge: {
     paddingRight: spacing.xs,
     borderRightWidth: 1,
     borderRightColor: colors.inputBorder,
     marginRight: spacing.xs,
   },
-  countryCodeText: {
-    ...typography.bodyMedium,
-    fontWeight: '700',
+  emailIconText: {
+    fontSize: 16,
+  },
+  showPassText: {
+    ...typography.caption,
     color: colors.deepMaroon,
+    fontWeight: '700',
   },
   actionBtn: {
     marginTop: spacing.md,
   },
-  demoBox: {
-    marginTop: spacing.xl,
-    padding: spacing.md,
-    backgroundColor: colors.softCream,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
+  toggleModeBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
   },
-  demoTitle: {
+  toggleModeText: {
     ...typography.caption,
-    color: colors.deepMaroon,
+    color: colors.saffronDark,
     fontWeight: '700',
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-  },
-  demoChipsRow: {
-    flexDirection: 'column',
-    gap: spacing.xs,
-  },
-  demoChip: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  demoChipText: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-    fontWeight: '600',
   },
 });

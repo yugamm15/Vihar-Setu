@@ -1,0 +1,35 @@
+export const CITIES = ['Surat'];
+
+export const SURAT_AREAS = [
+  'Adajan',
+  'Althan',
+  'Athwa Lines',
+  'Athwagate',
+  'Begampura',
+  'Bhatar',
+  'Bhestan',
+  'City Light',
+  'Dindoli',
+  'Dumas Road',
+  'Ghod Dod Road',
+  'Jahangirpura',
+  'Katargam',
+  'Majura Gate',
+  'Mota Varachha',
+  'Nanpura',
+  'Pal',
+  'Palanpur Canal Road',
+  'Piplod',
+  'Rander',
+  'Rustampura',
+  'Sachin',
+  'Sagrampura',
+  'Salabatpura',
+  'Udhna',
+  'Varachha',
+  'Vesu',
+  'VIP Road',
+  'Other Area',
+];
+
+export const BLOOD_GROUPS = ['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'];

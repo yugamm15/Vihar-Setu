@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789000",
-    "project_id": "vihar-setu-auth",
-    "storage_bucket": "vihar-setu-auth.appspot.com"
+    "project_number": "464966917035",
+    "project_id": "vihar-setu",
+    "storage_bucket": "vihar-setu.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789000:android:abcdef1234567890",
+        "mobilesdk_app_id": "1:464966917035:android:9cf821b4a949e47a36d0ee",
         "android_client_info": {
           "package_name": "com.viharsetu"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyReplaceWithYourActualFirebaseApiKey"
+          "current_key": "AIzaSyAj6O2hA969kNzqyr_XWfFD8lqi9N_2ITU"
         }
       ],
       "services": {

@@ -56,6 +56,7 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
       <AppHeader
         title={t('super_admin.dashboard_title')}
         subtitle={profile?.full_name || 'Super Administrator'}
+        showLogo={true}
         rightElement={
           <TouchableOpacity
             onPress={logout}

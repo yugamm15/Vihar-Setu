@@ -1,7 +1,7 @@
 {
   "app_name": "Vihar Setu",
-  "app_tagline": "Sacred Vihar Safety & Monitoring Platform",
-  "parent_group": "Jinaarya Vihar Seva",
+  "app_tagline": "by Jinaarya Vihar Seva",
+  "parent_group": "by Jinaarya Vihar Seva",
   "common": {
     "continue": "Continue",
     "save": "Save",
@@ -33,25 +33,35 @@
   },
   "auth": {
     "login_title": "Sevak & Admin Login",
-    "login_subtitle": "Enter your registered mobile number to receive a secure OTP.",
+    "login_subtitle": "Enter your registered email address to receive a secure OTP code.",
+    "email_label": "Email Address",
+    "email_placeholder": "name@example.com",
     "phone_label": "Mobile Number",
     "phone_placeholder": "98765 43210",
     "send_otp": "Send Verification Code",
+    "invalid_email": "Please enter a valid email address.",
     "invalid_phone": "Please enter a valid 10-digit mobile number.",
-    "otp_title": "Verify Verification Code",
-    "otp_subtitle": "Enter the 6-digit code sent to +91",
+    "otp_title": "Verify Email OTP",
+    "otp_subtitle": "Enter the verification code sent to",
     "verify_otp": "Verify & Proceed",
     "resend_code": "Resend Code",
     "resend_in": "Resend in {{seconds}}s",
-    "invalid_otp": "Please enter a valid 6-digit OTP.",
+    "invalid_otp": "Please enter a valid verification code.",
     "otp_failed": "OTP verification failed. Please try again.",
-    "demo_mode_tip": "For test access, use test numbers provided in setup guide."
+    "demo_mode_tip": "For demo test access, select one of the quick test credentials."
   },
   "profile_setup": {
-    "title": "Complete Your Profile",
-    "subtitle": "Please provide your details for safety records during Vihar.",
+    "title": "Complete Sevak Registration",
+    "subtitle": "Please provide your personal & contact details for administrator verification.",
     "full_name": "Full Name",
     "full_name_placeholder": "e.g. Smt. Rekhaben Shah",
+    "email": "Registered Email",
+    "phone": "Mobile Contact Number",
+    "phone_placeholder": "10-digit mobile number",
+    "age": "Age",
+    "age_placeholder": "e.g. 35",
+    "area": "Area / Locality",
+    "area_placeholder": "e.g. Paldi / Satellite",
     "city": "City / Village",
     "city_placeholder": "e.g. Ahmedabad",
     "emergency_contact_name": "Emergency Contact Name",
@@ -61,7 +71,24 @@
     "blood_group": "Blood Group",
     "blood_group_placeholder": "e.g. B+",
     "preferred_language": "Preferred Language",
-    "complete_button": "Complete Profile & Enter"
+    "submit_button": "Submit Registration for Approval"
+  },
+  "approval": {
+    "pending_title": "Registration Under Review",
+    "pending_subtitle": "Your Sevak registration has been received and is currently under review by the Administrator.",
+    "status_badge_pending": "Awaiting Administrator Approval",
+    "status_badge_approved": "Request Approved!",
+    "status_badge_rejected": "Request Declined",
+    "notice_text": "For safety and security reasons during Sadhviji Vihar seva, navigation and tracking access will be enabled as soon as an administrator verifies your application.",
+    "submitted_summary_title": "Submitted Profile Details",
+    "refresh_button": "Check Approval Status",
+    "withdraw_button": "Cancel Request & Logout",
+    "status_checking": "Checking status...",
+    "accepted_title": "Jai Jinendra! Request Approved",
+    "accepted_msg": "Your Sevak application has been approved by the Administrator. Full Vihar tracking access is now enabled.",
+    "rejected_title": "Registration Not Approved",
+    "rejected_msg": "Your Sevak registration request was declined by the administrator. Your account records have been reset.",
+    "proceed_to_app": "Enter Application"
   },
   "roles": {
     "sevak": "Vihar Sevika",
@@ -81,12 +108,15 @@
   },
   "admin": {
     "dashboard_title": "Admin Safety Dashboard",
+    "pending_requests": "Pending Sevak Requests",
     "active_vihars": "Active Vihars",
     "safe_count": "Safe",
     "warning_count": "Warning",
     "emergency_count": "Emergency",
     "live_map": "Live Map",
-    "reports": "Reports"
+    "reports": "Reports",
+    "approve": "Approve",
+    "reject": "Reject"
   },
   "super_admin": {
     "dashboard_title": "Super Admin Center",

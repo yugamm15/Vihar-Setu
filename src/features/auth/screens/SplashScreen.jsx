@@ -6,11 +6,11 @@ import {
   Animated,
   StatusBar,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { spacing } from '../../../core/theme/spacing';
-import { JainEmblemIcon } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../hooks/useAuthStore';
 import { storage } from '../../../core/storage/asyncStorage';
 import { t } from '../../../core/localization/i18n';
@@ -78,7 +78,11 @@ export const SplashScreen = ({ navigation }) => {
         ]}
       >
         <View style={styles.emblemWrapper}>
-          <JainEmblemIcon size={110} color={colors.gold} secondaryColor={colors.warmIvory} />
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         <Text style={styles.appName}>{t('splash.title')}</Text>
@@ -108,11 +112,21 @@ const styles = StyleSheet.create({
   },
   emblemWrapper: {
     marginBottom: spacing.xl,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderRadius: 9999,
-    backgroundColor: 'rgba(201, 164, 76, 0.08)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(201, 164, 76, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 2,
+    borderColor: colors.gold,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
   appName: {
     ...typography.h1,
@@ -137,7 +151,7 @@ const styles = StyleSheet.create({
   parentName: {
     ...typography.caption,
     color: colors.goldMuted,
-    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   footer: {
     position: 'absolute',

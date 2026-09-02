@@ -7,6 +7,7 @@ import {
   ScrollView,
   Dimensions,
   StatusBar,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../core/theme/colors';
@@ -14,7 +15,6 @@ import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import {
-  JainEmblemIcon,
   ShieldIcon,
   AlertTriangleIcon,
 } from '../../../shared/components/CustomSvgIcons';
@@ -38,7 +38,13 @@ export const OnboardingScreen = ({ navigation }) => {
   const slides = [
     {
       id: '1',
-      icon: <JainEmblemIcon size={84} color={colors.gold} secondaryColor={colors.deepMaroon} />,
+      icon: (
+        <Image
+          source={require('../../../assets/images/logo.png')}
+          style={{ width: 95, height: 95, borderRadius: 48 }}
+          resizeMode="contain"
+        />
+      ),
       title: t('onboarding.slide1_title'),
       desc: t('onboarding.slide1_desc'),
     },

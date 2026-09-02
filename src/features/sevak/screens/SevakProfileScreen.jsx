@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,10 @@ import {
   Platform,
   Linking,
   Alert,
+  Image,
+  TextInput,
+  FlatList,
+  Keyboard,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
@@ -29,24 +33,26 @@ import {
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
+import { CITIES, SURAT_AREAS, BLOOD_GROUPS } from '../../../core/constants/locations';
 import { t } from '../../../core/localization/i18n';
 
 const LANGUAGES = [
   { code: 'gu', label: 'ગુજરાતી' },
-  { code: 'hi', label: 'हिन्दी' },
+  { code: 'hi', label: 'હિन्दी' },
   { code: 'en', label: 'English' },
 ];
 
-const BLOOD_GROUPS = ['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'];
-
 export const SevakProfileScreen = () => {
+  const modalScrollRef = useRef(null);
   const { profile, user, updateProfileDetails, changeLanguage, language, logout } =
     useAuthStore();
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [fullName, setFullName] = useState(profile?.full_name || 'Vihar Sevika');
-  const [city, setCity] = useState(profile?.city || 'Bhavnagar');
+  const [city, setCity] = useState(profile?.city || 'Surat');
+  const [area, setArea] = useState(profile?.area || 'Adajan');
+  const [age, setAge] = useState(profile?.age ? String(profile.age) : '35');
   const [emergencyName, setEmergencyName] = useState(
     profile?.emergency_contact_name || 'Vihar Coordination Office'
   );
@@ -54,12 +60,44 @@ export const SevakProfileScreen = () => {
     profile?.emergency_contact_phone || '9876543211'
   );
   const [bloodGroup, setBloodGroup] = useState(profile?.blood_group || 'B+');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Dynamic Keyboard Listeners
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
+  // Area Selection inside Edit Modal
+  const [areaPickerOpen, setAreaPickerOpen] = useState(false);
+  const [areaSearch, setAreaSearch] = useState('');
+
+  const filteredAreas = SURAT_AREAS.filter((a) =>
+    a.toLowerCase().includes(areaSearch.toLowerCase().trim())
+  );
+
   const openEditModal = () => {
     setFullName(profile?.full_name || 'Vihar Sevika');
-    setCity(profile?.city || 'Bhavnagar');
+    setCity('Surat');
+    setArea(profile?.area || 'Adajan');
+    setAge(profile?.age ? String(profile.age) : '35');
     setEmergencyName(profile?.emergency_contact_name || 'Vihar Coordination Office');
     setEmergencyPhone(profile?.emergency_contact_phone || '9876543211');
     setBloodGroup(profile?.blood_group || 'B+');
@@ -73,10 +111,14 @@ export const SevakProfileScreen = () => {
       return;
     }
 
+    const parsedAge = parseInt(age.trim(), 10);
+
     setIsSaving(true);
     const success = await updateProfileDetails({
       full_name: fullName.trim(),
-      city: city.trim(),
+      city: 'Surat',
+      area: area.trim(),
+      age: isNaN(parsedAge) ? profile?.age : parsedAge,
       emergency_contact_name: emergencyName.trim(),
       emergency_contact_phone: emergencyPhone.trim(),
       blood_group: bloodGroup.trim(),
@@ -91,7 +133,11 @@ export const SevakProfileScreen = () => {
         setSaveSuccessMsg('');
       }, 1000);
     } else {
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      const storeError = useAuthStore.getState().error;
+      Alert.alert(
+        'Unable to Save',
+        storeError || 'Failed to update profile. Please try again.'
+      );
     }
   };
 
@@ -128,7 +174,7 @@ export const SevakProfileScreen = () => {
 
           <Text style={styles.userName}>{profile?.full_name || 'Vihar Sevika'}</Text>
           <Text style={styles.userCity}>
-            📍 {profile?.city || 'Bhavnagar'}, Gujarat
+            📍 {profile?.area ? `${profile.area}, ` : ''}{profile?.city || 'Surat'}, Gujarat
           </Text>
 
           <View style={styles.roleBadgeRow}>
@@ -152,8 +198,32 @@ export const SevakProfileScreen = () => {
           <Text style={styles.sectionHeader}>Personal Information</Text>
 
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email</Text>
+            <Text style={styles.infoValue}>{profile?.email || user?.email || '—'}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Phone Number</Text>
-            <Text style={styles.infoValue}>{profile?.phone || '+91 98765 43210'}</Text>
+            <Text style={styles.infoValue}>{profile?.phone || '—'}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>City</Text>
+            <Text style={styles.infoValue}>{profile?.city || 'Surat'}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Area / Locality</Text>
+            <Text style={styles.infoValue}>{profile?.area || '—'}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Age</Text>
+            <Text style={styles.infoValue}>{profile?.age ? `${profile.age} yrs` : '—'}</Text>
           </View>
           <View style={styles.divider} />
 
@@ -243,6 +313,17 @@ export const SevakProfileScreen = () => {
           <LogoutIcon size={20} color={colors.statusEmergency} />
           <Text style={styles.logoutText}>Logout of Account</Text>
         </TouchableOpacity>
+
+        {/* Section 5: App Branding & Version */}
+        <View style={styles.aboutCard}>
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={styles.aboutLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.aboutTitle}>Jinaarya Vihar Seva</Text>
+          <Text style={styles.aboutSub}>Vihar Setu • v1.0.0</Text>
+        </View>
       </ScrollView>
 
       {/* EDIT PROFILE MODAL */}
@@ -268,8 +349,16 @@ export const SevakProfileScreen = () => {
             </View>
 
             <ScrollView
-              contentContainerStyle={styles.modalScroll}
+              ref={modalScrollRef}
+              contentContainerStyle={[
+                styles.modalScroll,
+                {
+                  paddingBottom:
+                    keyboardHeight > 0 ? keyboardHeight + 20 : spacing.lg,
+                },
+              ]}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               {saveSuccessMsg ? (
                 <View style={styles.successBanner}>
@@ -284,11 +373,33 @@ export const SevakProfileScreen = () => {
                 onChangeText={setFullName}
               />
 
+              {/* City (Fixed to Surat) */}
+              <Text style={styles.inputLabel}>City</Text>
+              <View style={styles.selectBoxDisabled}>
+                <Text style={styles.selectValueText}>📍 Surat (Gujarat)</Text>
+              </View>
+
+              {/* Area Selection Menu */}
+              <Text style={styles.inputLabel}>Area in Surat</Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setAreaSearch('');
+                  setAreaPickerOpen(true);
+                }}
+                style={styles.selectBox}
+              >
+                <Text style={styles.selectValueText}>🏢 {area}</Text>
+                <Text style={styles.selectArrow}>▼</Text>
+              </TouchableOpacity>
+
               <CustomTextInput
-                label="City / Sangha"
-                placeholder="e.g. Bhavnagar, Palitana, Ahmedabad"
-                value={city}
-                onChangeText={setCity}
+                label="Age"
+                placeholder="e.g. 35"
+                value={age}
+                onChangeText={setAge}
+                keyboardType="number-pad"
+                maxLength={3}
               />
 
               {/* Blood Group Chips */}
@@ -323,6 +434,13 @@ export const SevakProfileScreen = () => {
                 placeholder="Name of family member / Sangha coordinator"
                 value={emergencyName}
                 onChangeText={setEmergencyName}
+                onFocus={() =>
+                  setTimeout(
+                    () =>
+                      modalScrollRef.current?.scrollToEnd({ animated: true }),
+                    100
+                  )
+                }
               />
 
               <CustomTextInput
@@ -332,6 +450,13 @@ export const SevakProfileScreen = () => {
                 onChangeText={setEmergencyPhone}
                 keyboardType="phone-pad"
                 maxLength={10}
+                onFocus={() =>
+                  setTimeout(
+                    () =>
+                      modalScrollRef.current?.scrollToEnd({ animated: true }),
+                    100
+                  )
+                }
               />
 
               <View style={styles.modalBtnRow}>
@@ -351,6 +476,68 @@ export const SevakProfileScreen = () => {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* NESTED AREA PICKER MODAL */}
+      <Modal
+        visible={areaPickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAreaPickerOpen(false)}
+      >
+        <View style={styles.areaPickerOverlay}>
+          <View style={[styles.areaPickerCard, shadows.elevated]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Area in Surat</Text>
+              <TouchableOpacity
+                onPress={() => setAreaPickerOpen(false)}
+                style={styles.closeBtn}
+              >
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchBox}>
+              <Text style={styles.searchIcon}>🔍</Text>
+              <TextInput
+                placeholder="Search area..."
+                placeholderTextColor={colors.textMuted}
+                value={areaSearch}
+                onChangeText={setAreaSearch}
+                style={styles.searchInput}
+              />
+            </View>
+
+            <FlatList
+              data={filteredAreas}
+              keyExtractor={(item) => item}
+              keyboardShouldPersistTaps="handled"
+              style={styles.areaList}
+              renderItem={({ item }) => {
+                const isSelected = area === item;
+                return (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setArea(item);
+                      setAreaPickerOpen(false);
+                    }}
+                    style={[styles.areaItem, isSelected && styles.areaItemActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.areaItemText,
+                        isSelected && styles.areaItemTextActive,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                    {isSelected ? <Text style={styles.checkmarkText}>✓</Text> : null}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -568,7 +755,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   modalTitle: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.deepMaroon,
   },
   closeBtn: {
@@ -599,7 +786,38 @@ const styles = StyleSheet.create({
     color: colors.deepMaroon,
     fontWeight: '700',
     marginBottom: spacing.xs,
+    marginTop: spacing.xs,
     textTransform: 'uppercase',
+  },
+  selectBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: colors.inputBorder,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
+  },
+  selectBoxDisabled: {
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
+  },
+  selectValueText: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  selectArrow: {
+    fontSize: 12,
+    color: colors.deepMaroon,
   },
   bloodChipsRow: {
     flexDirection: 'row',
@@ -637,5 +855,93 @@ const styles = StyleSheet.create({
   },
   modalSaveBtn: {
     flex: 1.5,
+  },
+  aboutCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xl,
+    marginBottom: spacing.xxl,
+    paddingVertical: spacing.md,
+  },
+  aboutLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: spacing.xs,
+  },
+  aboutTitle: {
+    ...typography.bodyMedium,
+    fontWeight: '700',
+    color: colors.deepMaroon,
+  },
+  aboutSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+
+  /* NESTED AREA PICKER */
+  areaPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  areaPickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '100%',
+    maxHeight: '75%',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.md,
+  },
+  searchIcon: {
+    fontSize: 16,
+    marginRight: spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  areaList: {
+    maxHeight: 320,
+  },
+  areaItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+  },
+  areaItemActive: {
+    backgroundColor: '#FFF8E7',
+    borderRadius: borderRadius.sm,
+  },
+  areaItemText: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  areaItemTextActive: {
+    color: colors.deepMaroon,
+    fontWeight: '700',
+  },
+  checkmarkText: {
+    fontSize: 16,
+    color: colors.statusSafe,
+    fontWeight: '700',
   },
 });

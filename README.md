@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./src/assets/images/logo.png" alt="Jinaarya Vihar Seva Logo" width="130" style="border-radius: 50%;" />
+
 # 🪔 Vihar Setu (વિહાર સેતુ / विहार सेतु)
 
 ### *Sacred Sadhviji Vihar Safety, Real-Time Telemetry & Emergency Escalation Platform*

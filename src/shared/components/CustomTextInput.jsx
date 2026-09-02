@@ -17,6 +17,8 @@ export const CustomTextInput = ({
   rightElement = null,
   editable = true,
   style = {},
+  onFocus,
+  onBlur,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -41,8 +43,14 @@ export const CustomTextInput = ({
           maxLength={maxLength}
           secureTextEntry={secureTextEntry}
           editable={editable}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={(e) => {
+            setIsFocused(true);
+            if (onFocus) onFocus(e);
+          }}
+          onBlur={(e) => {
+            setIsFocused(false);
+            if (onBlur) onBlur(e);
+          }}
           style={styles.textInput}
         />
         {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
