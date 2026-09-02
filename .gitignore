@@ -8,7 +8,6 @@ yarn-error.log*
 # Environment & Secrets (NEVER push real keys to GitHub)
 .env
 .env.*
-!.env.example
 *.pem
 *.keystore
 !android/app/debug.keystore
