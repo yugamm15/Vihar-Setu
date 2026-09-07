@@ -40,6 +40,7 @@ export const ProfileSetupScreen = () => {
     (profile?.phone || '').replace('+91', '')
   );
   const [age, setAge] = useState(profile?.age ? String(profile.age) : '');
+  const [gender, setGender] = useState('Female');
   const [city, setCity] = useState(profile?.city || 'Surat');
   const [area, setArea] = useState(profile?.area || '');
   const [emergencyName, setEmergencyName] = useState(
@@ -113,12 +114,19 @@ export const ProfileSetupScreen = () => {
       return;
     }
 
+    const cleanEmergencyPhone = emergencyPhone.replace(/[^0-9]/g, '');
+    if (cleanEmergencyPhone && cleanEmergencyPhone.length !== 10) {
+      setErrorMessage('Please enter a valid 10-digit emergency contact phone number.');
+      return;
+    }
+
     const fullPhone = `+91${cleanPhone}`;
     const success = await updateProfileDetails({
       full_name: fullName.trim(),
       email: userEmail,
       phone: fullPhone,
       age: parsedAge,
+      gender: gender,
       city: 'Surat',
       area: area.trim(),
       emergency_contact_name: emergencyName.trim(),
@@ -216,7 +224,7 @@ export const ProfileSetupScreen = () => {
             maxLength={10}
             leftElement={
               <View style={styles.countryCodeBadge}>
-                <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
+                <Text style={styles.countryCodeText}>+91</Text>
               </View>
             }
           />
@@ -231,6 +239,33 @@ export const ProfileSetupScreen = () => {
             maxLength={3}
           />
 
+          {/* Gender Selection Chips */}
+          <Text style={styles.inputLabel}>Gender *</Text>
+          <View style={styles.genderRow}>
+            {['Female', 'Male'].map((g) => {
+              const isSel = gender === g;
+              return (
+                <TouchableOpacity
+                  key={g}
+                  onPress={() => setGender(g)}
+                  style={[
+                    styles.genderChip,
+                    isSel && styles.genderChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.genderChipText,
+                      isSel && styles.genderChipTextActive,
+                    ]}
+                  >
+                    {g}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           {/* City Selection (Fixed to Surat) */}
           <Text style={styles.inputLabel}>{t('profile_setup.city')} *</Text>
           <TouchableOpacity
@@ -238,7 +273,7 @@ export const ProfileSetupScreen = () => {
             onPress={() => setCityModalVisible(true)}
             style={styles.selectBox}
           >
-            <Text style={styles.selectValueText}>📍 {city}</Text>
+            <Text style={styles.selectValueText}>{city} (Gujarat)</Text>
             <Text style={styles.selectArrow}>▼</Text>
           </TouchableOpacity>
 
@@ -253,7 +288,7 @@ export const ProfileSetupScreen = () => {
             style={[styles.selectBox, !area && styles.selectBoxEmpty]}
           >
             <Text style={area ? styles.selectValueText : styles.selectPlaceholderText}>
-              {area ? `🏢 ${area}` : 'Select your area in Surat'}
+              {area ? area : 'Select your area in Surat'}
             </Text>
             <Text style={styles.selectArrow}>▼</Text>
           </TouchableOpacity>
@@ -334,13 +369,12 @@ export const ProfileSetupScreen = () => {
                 onPress={() => setAreaModalVisible(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <Text style={styles.closeBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
 
             {/* Search filter for areas */}
             <View style={styles.searchBox}>
-              <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
                 placeholder="Search area (e.g. Adajan, Vesu, Paldi...)"
                 placeholderTextColor={colors.textMuted}
@@ -350,7 +384,7 @@ export const ProfileSetupScreen = () => {
               />
               {areaSearchQuery ? (
                 <TouchableOpacity onPress={() => setAreaSearchQuery('')}>
-                  <Text style={styles.clearSearch}>✕</Text>
+                  <Text style={styles.clearSearch}>Clear</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -383,7 +417,7 @@ export const ProfileSetupScreen = () => {
                       {item}
                     </Text>
                     {isSelected ? (
-                      <Text style={styles.checkmarkText}>✓</Text>
+                      <Text style={styles.checkmarkText}>Selected</Text>
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -408,7 +442,7 @@ export const ProfileSetupScreen = () => {
                 onPress={() => setCityModalVisible(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <Text style={styles.closeBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
 
@@ -421,8 +455,8 @@ export const ProfileSetupScreen = () => {
                 }}
                 style={styles.cityItem}
               >
-                <Text style={styles.cityItemText}>📍 {c} (Gujarat)</Text>
-                <Text style={styles.checkmarkText}>✓</Text>
+                <Text style={styles.cityItemText}>{c} (Gujarat)</Text>
+                <Text style={styles.checkmarkText}>Selected</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -452,11 +486,14 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.deepMaroon,
     marginBottom: 4,
+    textAlign: 'center',
+    fontWeight: '800',
   },
   subtitle: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
     marginBottom: spacing.lg,
+    textAlign: 'center',
   },
   sectionLabel: {
     ...typography.caption,
@@ -464,6 +501,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: spacing.xs,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   langRow: {
     flexDirection: 'row',
@@ -557,6 +595,34 @@ const styles = StyleSheet.create({
   bloodChipTextActive: {
     color: colors.warmIvory,
   },
+  genderRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    marginTop: 2,
+  },
+  genderChip: {
+    flex: 1,
+    paddingVertical: 10,
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+  },
+  genderChipActive: {
+    backgroundColor: colors.deepMaroon,
+    borderColor: colors.deepMaroon,
+  },
+  genderChipText: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  genderChipTextActive: {
+    color: colors.warmIvory,
+    fontWeight: '700',
+  },
   countryCodeBadge: {
     paddingRight: spacing.xs,
     borderRightWidth: 1,
@@ -610,9 +676,9 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   closeBtnText: {
-    fontSize: 20,
+    fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   searchBox: {
     flexDirection: 'row',
@@ -624,10 +690,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: spacing.xs,
-  },
   searchInput: {
     flex: 1,
     paddingVertical: 10,
@@ -635,7 +697,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   clearSearch: {
-    fontSize: 16,
+    fontSize: 12,
     color: colors.textMuted,
     padding: spacing.xs,
   },
@@ -664,7 +726,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   checkmarkText: {
-    fontSize: 16,
+    fontSize: 12,
     color: colors.statusSafe,
     fontWeight: '700',
   },

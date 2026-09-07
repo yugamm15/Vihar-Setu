@@ -21,12 +21,14 @@ import {
   LogoutIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
+import { useViharStore } from '../../vihar/hooks/useViharStore';
 import { supabase } from '../../../core/config/supabase';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
 import { t } from '../../../core/localization/i18n';
 
 export const SevakHomeScreen = ({ navigation }) => {
   const { user, profile, logout } = useAuthStore();
+  const { activeVihar, scheduledVihars, loadViharState } = useViharStore();
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     totalVihars: 18,
@@ -48,6 +50,8 @@ export const SevakHomeScreen = ({ navigation }) => {
   const loadSevakStats = useCallback(async () => {
     if (!user?.id) return;
     try {
+      await loadViharState(user.id);
+
       const { data, error } = await supabase
         .from('vihars')
         .select('total_distance_km, estimated_duration_mins, status, created_at')
@@ -78,7 +82,7 @@ export const SevakHomeScreen = ({ navigation }) => {
     } catch (e) {
       console.log('[SevakHome] Fetch stats info:', e);
     }
-  }, [user]);
+  }, [user, loadViharState]);
 
   useEffect(() => {
     loadSevakStats();
@@ -89,6 +93,8 @@ export const SevakHomeScreen = ({ navigation }) => {
     await loadSevakStats();
     setRefreshing(false);
   };
+
+  const nextScheduled = scheduledVihars && scheduledVihars.length > 0 ? scheduledVihars[0] : null;
 
   return (
     <View style={styles.container}>
@@ -120,22 +126,70 @@ export const SevakHomeScreen = ({ navigation }) => {
           />
         }
       >
+        {/* ACTIVE VIHAR LIVE CARD */}
+        {activeVihar ? (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('ViharTab')}
+            style={[styles.activeLiveBanner, shadows.elevated]}
+          >
+            <View style={styles.activeLiveRow}>
+              <View style={styles.livePulseDot} />
+              <Text style={styles.activeLiveTitle}>ACTIVE VIHAR IN PROGRESS</Text>
+            </View>
+            <Text style={styles.activeLiveRoute}>
+              {activeVihar.source_name} → {activeVihar.dest_name}
+            </Text>
+            <Text style={styles.activeLiveSub}>
+              Tap to open live navigation & emergency controls →
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {/* SCHEDULED VIHAR 30-MIN PRE-ALARM BANNER */}
+        {!activeVihar && nextScheduled ? (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('ViharTab')}
+            style={[styles.scheduledBannerCard, shadows.card]}
+          >
+            <View style={styles.scheduledBannerHeader}>
+              <View style={styles.alarmBadge}>
+                <Text style={styles.alarmBadgeText}>30-Min Alarm Active</Text>
+              </View>
+              <Text style={styles.scheduledTimeTag}>Upcoming Morning</Text>
+            </View>
+            <Text style={styles.scheduledBannerTitle}>
+              Upcoming Vihar: {nextScheduled.dest_name}
+            </Text>
+            <Text style={styles.scheduledBannerSub}>
+              From: {nextScheduled.source_name}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Greeting Banner */}
         <View style={[styles.greetingCard, shadows.card]}>
           <Text style={styles.greetingTitle}>
-            {getGreeting()}, {profile?.full_name || 'Sevak'} 🙏
+            {getGreeting()}, {profile?.full_name || 'Sevak'}
           </Text>
-          <Text style={styles.greetingSubtitle}>Ready for your Vihar?</Text>
+          <Text style={styles.greetingSubtitle}>
+            {activeVihar
+              ? 'Active Vihar is being tracked live'
+              : 'Prepare for sacred Sadhviji Vihar Seva'}
+          </Text>
 
-          <PrimaryButton
-            title="+ START VIHAR"
-            variant="saffron"
-            onPress={() => navigation.navigate('ViharTab')}
-            style={styles.startViharBtn}
-          />
+          <View style={styles.greetingBtnRow}>
+            <PrimaryButton
+              title={activeVihar ? "OPEN LIVE VIHAR →" : "START VIHAR NOW"}
+              variant="saffron"
+              onPress={() => navigation.navigate('ViharTab')}
+              style={styles.startViharBtn}
+            />
+          </View>
         </View>
 
-        {/* 2 STATS BOXES (Calculated from Supabase) */}
+        {/* 2 STATS BOXES */}
         <View style={styles.statsRow}>
           {/* Box 1: Total Vihars Done */}
           <View style={[styles.statCard, shadows.card]}>
@@ -152,7 +206,9 @@ export const SevakHomeScreen = ({ navigation }) => {
             <View style={styles.statIconBadgeSaffron}>
               <NavigationIcon size={22} color={colors.saffron} />
             </View>
-            <Text style={styles.statNumber}>{stats.totalDistanceKm} <Text style={styles.kmUnit}>km</Text></Text>
+            <Text style={styles.statNumber}>
+              {stats.totalDistanceKm} <Text style={styles.kmUnit}>km</Text>
+            </Text>
             <Text style={styles.statTitle}>Total Distance</Text>
             <Text style={styles.statSubtitle}>Calculated Track</Text>
           </View>
@@ -201,6 +257,83 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
   },
+  activeLiveBanner: {
+    backgroundColor: colors.deepMaroon,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 5,
+    borderLeftColor: colors.saffron,
+  },
+  activeLiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  livePulseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#00E676',
+  },
+  activeLiveTitle: {
+    ...typography.caption,
+    color: '#00E676',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  activeLiveRoute: {
+    ...typography.bodyMedium,
+    color: colors.warmIvory,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  activeLiveSub: {
+    ...typography.caption,
+    color: colors.goldLight,
+  },
+  scheduledBannerCard: {
+    backgroundColor: '#FFFDF0',
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+  },
+  scheduledBannerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  alarmBadge: {
+    backgroundColor: colors.gold,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+  },
+  alarmBadgeText: {
+    ...typography.caption,
+    color: colors.deepMaroon,
+    fontWeight: '800',
+    fontSize: 10,
+  },
+  scheduledTimeTag: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  scheduledBannerTitle: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  scheduledBannerSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
   greetingCard: {
     backgroundColor: colors.deepMaroon,
     borderRadius: borderRadius.lg,
@@ -216,6 +349,9 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.goldLight,
     marginBottom: spacing.lg,
+  },
+  greetingBtnRow: {
+    gap: spacing.sm,
   },
   startViharBtn: {
     backgroundColor: colors.saffron,

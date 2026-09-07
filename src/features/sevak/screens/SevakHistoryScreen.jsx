@@ -58,7 +58,7 @@ export const SevakHistoryScreen = () => {
             <View style={styles.routeRow}>
               <MapPinIcon size={18} color={colors.saffron} />
               <Text style={styles.routeText}>
-                {item.from} ➔ {item.to}
+                {item.from} → {item.to}
               </Text>
             </View>
 

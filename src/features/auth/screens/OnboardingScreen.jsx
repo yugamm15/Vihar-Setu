@@ -77,8 +77,21 @@ export const OnboardingScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, 24) }]}>
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
       <StatusBar backgroundColor={colors.warmIvory} barStyle="dark-content" />
+
+      {/* Prominent Vihar Setu App Branding Header */}
+      <View style={styles.brandingHeader}>
+        <View style={styles.brandingEmblem}>
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={styles.brandingLogo}
+            resizeMode="contain"
+          />
+        </View>
+        <Text style={styles.brandingAppName}>{t('app_name')}</Text>
+        <Text style={styles.brandingSubtitle}>જિનાર્ય વિહાર સેવા • Jinaarya Vihar Seva</Text>
+      </View>
 
       {/* Slides Carousel */}
       <ScrollView
@@ -158,6 +171,43 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.warmIvory,
     justifyContent: 'space-between',
+  },
+  brandingHeader: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  brandingEmblem: {
+    padding: 3,
+    borderRadius: 9999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    marginBottom: 4,
+    shadowColor: colors.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  brandingLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  brandingAppName: {
+    ...typography.h2,
+    color: colors.deepMaroon,
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  brandingSubtitle: {
+    ...typography.caption,
+    color: colors.saffronDark,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
   },
   carousel: {
     flex: 1,

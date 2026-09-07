@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
-  Alert,
   Image,
   TextInput,
   FlatList,
@@ -24,6 +23,7 @@ import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { SecondaryButton } from '../../../shared/components/SecondaryButton';
 import { CustomTextInput } from '../../../shared/components/CustomTextInput';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
+import { ConfirmationDialog } from '../../../shared/components/ConfirmationDialog';
 import {
   UserIcon,
   PhoneIcon,
@@ -32,8 +32,10 @@ import {
   LogoutIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
+import { useAlertStore } from '../../../shared/hooks/useAlertStore';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
-import { CITIES, SURAT_AREAS, BLOOD_GROUPS } from '../../../core/constants/locations';
+import { SURAT_AREAS, BLOOD_GROUPS } from '../../../core/constants/locations';
+import { AVATAR_PRESETS } from '../../profile/constants/avatarPresets';
 import { t } from '../../../core/localization/i18n';
 
 const LANGUAGES = [
@@ -46,13 +48,15 @@ export const SevakProfileScreen = () => {
   const modalScrollRef = useRef(null);
   const { profile, user, updateProfileDetails, changeLanguage, language, logout } =
     useAuthStore();
+  const { showAlert } = useAlertStore();
 
-  // Edit Modal State
+  // Edit Profile Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [fullName, setFullName] = useState(profile?.full_name || 'Vihar Sevika');
   const [city, setCity] = useState(profile?.city || 'Surat');
   const [area, setArea] = useState(profile?.area || 'Adajan');
   const [age, setAge] = useState(profile?.age ? String(profile.age) : '35');
+  const [gender, setGender] = useState(profile?.gender || 'Female');
   const [emergencyName, setEmergencyName] = useState(
     profile?.emergency_contact_name || 'Vihar Coordination Office'
   );
@@ -61,6 +65,22 @@ export const SevakProfileScreen = () => {
   );
   const [bloodGroup, setBloodGroup] = useState(profile?.blood_group || 'B+');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Avatar Selection State
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [selectedAvatarId, setSelectedAvatarId] = useState(
+    profile?.avatar_url || 'sevika_1'
+  );
+
+  // Logout Confirmation State
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  // Area Selection inside Edit Modal
+  const [areaPickerOpen, setAreaPickerOpen] = useState(false);
+  const [areaSearch, setAreaSearch] = useState('');
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
   // Dynamic Keyboard Listeners
   useEffect(() => {
@@ -82,22 +102,21 @@ export const SevakProfileScreen = () => {
       hideSub.remove();
     };
   }, []);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
-
-  // Area Selection inside Edit Modal
-  const [areaPickerOpen, setAreaPickerOpen] = useState(false);
-  const [areaSearch, setAreaSearch] = useState('');
 
   const filteredAreas = SURAT_AREAS.filter((a) =>
     a.toLowerCase().includes(areaSearch.toLowerCase().trim())
   );
+
+  const currentAvatar =
+    AVATAR_PRESETS.find((a) => a.id === (profile?.avatar_url || selectedAvatarId)) ||
+    AVATAR_PRESETS[0];
 
   const openEditModal = () => {
     setFullName(profile?.full_name || 'Vihar Sevika');
     setCity('Surat');
     setArea(profile?.area || 'Adajan');
     setAge(profile?.age ? String(profile.age) : '35');
+    setGender(profile?.gender || 'Female');
     setEmergencyName(profile?.emergency_contact_name || 'Vihar Coordination Office');
     setEmergencyPhone(profile?.emergency_contact_phone || '9876543211');
     setBloodGroup(profile?.blood_group || 'B+');
@@ -107,18 +126,44 @@ export const SevakProfileScreen = () => {
 
   const handleSaveProfile = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Required', 'Please enter your full name.');
+      showAlert({
+        type: 'WARNING',
+        title: 'Required',
+        message: 'Please enter your full name.',
+        confirmText: 'OK',
+      });
+      return;
+    }
+
+    const cleanEmergencyPhone = emergencyPhone.replace(/[^0-9]/g, '');
+    if (cleanEmergencyPhone.length !== 10) {
+      showAlert({
+        type: 'WARNING',
+        title: 'Invalid Number',
+        message: 'Please enter a valid 10-digit emergency contact number.',
+        confirmText: 'OK',
+      });
       return;
     }
 
     const parsedAge = parseInt(age.trim(), 10);
+    if (isNaN(parsedAge) || parsedAge < 16 || parsedAge > 90) {
+      showAlert({
+        type: 'WARNING',
+        title: 'Invalid Age',
+        message: 'Please enter an age between 16 and 90.',
+        confirmText: 'OK',
+      });
+      return;
+    }
 
     setIsSaving(true);
     const success = await updateProfileDetails({
       full_name: fullName.trim(),
       city: 'Surat',
       area: area.trim(),
-      age: isNaN(parsedAge) ? profile?.age : parsedAge,
+      age: parsedAge,
+      gender: gender,
       emergency_contact_name: emergencyName.trim(),
       emergency_contact_phone: emergencyPhone.trim(),
       blood_group: bloodGroup.trim(),
@@ -127,24 +172,54 @@ export const SevakProfileScreen = () => {
     setIsSaving(false);
 
     if (success) {
-      setSaveSuccessMsg('Profile updated successfully! ✨');
+      setSaveSuccessMsg('Profile updated successfully.');
       setTimeout(() => {
         setIsEditModalOpen(false);
         setSaveSuccessMsg('');
+        showAlert({
+          type: 'SUCCESS',
+          title: 'Profile Updated',
+          message: 'Profile updated successfully.',
+          confirmText: 'OK',
+        });
       }, 1000);
     } else {
       const storeError = useAuthStore.getState().error;
-      Alert.alert(
-        'Unable to Save',
-        storeError || 'Failed to update profile. Please try again.'
-      );
+      showAlert({
+        type: 'ERROR',
+        title: 'Unable to Save',
+        message: storeError || 'Failed to update profile in database. Please try again.',
+        confirmText: 'OK',
+      });
     }
+  };
+
+  const handleSelectAvatar = async (preset) => {
+    setSelectedAvatarId(preset.id);
+    setIsAvatarModalOpen(false);
+    await updateProfileDetails({
+      avatar_url: preset.id,
+    });
   };
 
   const handleCallEmergency = (phone) => {
     if (!phone) return;
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     Linking.openURL(`tel:${cleanPhone}`);
+  };
+
+  const formatJoinedDate = (dateString) => {
+    if (!dateString) return 'Active Seva Member';
+    try {
+      const d = new Date(dateString);
+      return d.toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch {
+      return 'Active Seva Member';
+    }
   };
 
   return (
@@ -154,7 +229,7 @@ export const SevakProfileScreen = () => {
         title="Sevak Profile"
         rightElement={
           <TouchableOpacity
-            onPress={logout}
+            onPress={() => setIsLogoutModalOpen(true)}
             style={styles.headerLogout}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -166,15 +241,27 @@ export const SevakProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Card with Avatar & Sacred Rings */}
         <View style={[styles.profileCard, shadows.card]}>
-          <View style={styles.avatarGlowRing}>
-            <View style={styles.avatarCircle}>
-              <UserIcon size={46} color={colors.warmIvory} />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setIsAvatarModalOpen(true)}
+            style={styles.avatarGlowRing}
+          >
+            <View
+              style={[
+                styles.avatarCircle,
+                { backgroundColor: currentAvatar.bgColor || colors.deepMaroon },
+              ]}
+            >
+              <Text style={styles.avatarInitials}>
+                {currentAvatar.initials || 'VS'}
+              </Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           <Text style={styles.userName}>{profile?.full_name || 'Vihar Sevika'}</Text>
           <Text style={styles.userCity}>
-            📍 {profile?.area ? `${profile.area}, ` : ''}{profile?.city || 'Surat'}, Gujarat
+            {profile?.area ? `${profile.area}, ` : ''}
+            {profile?.city || 'Surat'}, Gujarat
           </Text>
 
           <View style={styles.roleBadgeRow}>
@@ -184,13 +271,23 @@ export const SevakProfileScreen = () => {
             </View>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={openEditModal}
-            style={styles.editProfileChip}
-          >
-            <Text style={styles.editProfileChipText}>✏️ Edit Profile</Text>
-          </TouchableOpacity>
+          <View style={styles.profileActionRow}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={openEditModal}
+              style={styles.editProfileChip}
+            >
+              <Text style={styles.editProfileChipText}>Edit Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setIsAvatarModalOpen(true)}
+              style={styles.avatarPickerChip}
+            >
+              <Text style={styles.avatarPickerChipText}>Change Avatar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Section 1: Personal Details */}
@@ -222,8 +319,10 @@ export const SevakProfileScreen = () => {
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Age</Text>
-            <Text style={styles.infoValue}>{profile?.age ? `${profile.age} yrs` : '—'}</Text>
+            <Text style={styles.infoLabel}>Age & Gender</Text>
+            <Text style={styles.infoValue}>
+              {profile?.age ? `${profile.age} yrs` : '—'} • {profile?.gender || 'Female'}
+            </Text>
           </View>
           <View style={styles.divider} />
 
@@ -232,6 +331,14 @@ export const SevakProfileScreen = () => {
             <View style={styles.bloodBadge}>
               <Text style={styles.bloodBadgeText}>{profile?.blood_group || 'B+'}</Text>
             </View>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Seva Member Since</Text>
+            <Text style={styles.infoValue}>
+              {formatJoinedDate(profile?.created_at)}
+            </Text>
           </View>
           <View style={styles.divider} />
 
@@ -307,7 +414,7 @@ export const SevakProfileScreen = () => {
         {/* Section 4: Logout Button */}
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={logout}
+          onPress={() => setIsLogoutModalOpen(true)}
           style={[styles.logoutCard, shadows.card]}
         >
           <LogoutIcon size={20} color={colors.statusEmergency} />
@@ -322,7 +429,7 @@ export const SevakProfileScreen = () => {
             resizeMode="contain"
           />
           <Text style={styles.aboutTitle}>Jinaarya Vihar Seva</Text>
-          <Text style={styles.aboutSub}>Vihar Setu • v1.0.0</Text>
+          <Text style={styles.aboutSub}>Vihar Setu • v1.0.0 (Production)</Text>
         </View>
       </ScrollView>
 
@@ -344,7 +451,7 @@ export const SevakProfileScreen = () => {
                 onPress={() => setIsEditModalOpen(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <Text style={styles.closeBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
 
@@ -367,7 +474,7 @@ export const SevakProfileScreen = () => {
               ) : null}
 
               <CustomTextInput
-                label="Full Name"
+                label="Full Name *"
                 placeholder="Enter your full name"
                 value={fullName}
                 onChangeText={setFullName}
@@ -376,11 +483,11 @@ export const SevakProfileScreen = () => {
               {/* City (Fixed to Surat) */}
               <Text style={styles.inputLabel}>City</Text>
               <View style={styles.selectBoxDisabled}>
-                <Text style={styles.selectValueText}>📍 Surat (Gujarat)</Text>
+                <Text style={styles.selectValueText}>Surat (Gujarat)</Text>
               </View>
 
               {/* Area Selection Menu */}
-              <Text style={styles.inputLabel}>Area in Surat</Text>
+              <Text style={styles.inputLabel}>Area in Surat *</Text>
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => {
@@ -389,18 +496,50 @@ export const SevakProfileScreen = () => {
                 }}
                 style={styles.selectBox}
               >
-                <Text style={styles.selectValueText}>🏢 {area}</Text>
+                <Text style={styles.selectValueText}>{area}</Text>
                 <Text style={styles.selectArrow}>▼</Text>
               </TouchableOpacity>
 
-              <CustomTextInput
-                label="Age"
-                placeholder="e.g. 35"
-                value={age}
-                onChangeText={setAge}
-                keyboardType="number-pad"
-                maxLength={3}
-              />
+              <View style={styles.ageGenderRow}>
+                <View style={styles.ageBox}>
+                  <CustomTextInput
+                    label="Age *"
+                    placeholder="e.g. 35"
+                    value={age}
+                    onChangeText={setAge}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                </View>
+
+                <View style={styles.genderBox}>
+                  <Text style={styles.inputLabel}>Gender</Text>
+                  <View style={styles.genderRow}>
+                    {['Female', 'Male'].map((g) => {
+                      const isSel = gender === g;
+                      return (
+                        <TouchableOpacity
+                          key={g}
+                          onPress={() => setGender(g)}
+                          style={[
+                            styles.genderChip,
+                            isSel && styles.genderChipActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.genderChipText,
+                              isSel && styles.genderChipTextActive,
+                            ]}
+                          >
+                            {g}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
 
               {/* Blood Group Chips */}
               <Text style={styles.inputLabel}>Blood Group</Text>
@@ -430,7 +569,7 @@ export const SevakProfileScreen = () => {
               </View>
 
               <CustomTextInput
-                label="Emergency Contact Person"
+                label="Emergency Contact Person *"
                 placeholder="Name of family member / Sangha coordinator"
                 value={emergencyName}
                 onChangeText={setEmergencyName}
@@ -444,7 +583,7 @@ export const SevakProfileScreen = () => {
               />
 
               <CustomTextInput
-                label="Emergency Contact Phone"
+                label="Emergency Contact Phone *"
                 placeholder="10-digit mobile number"
                 value={emergencyPhone}
                 onChangeText={setEmergencyPhone}
@@ -478,6 +617,69 @@ export const SevakProfileScreen = () => {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* AVATAR PICKER MODAL */}
+      <Modal
+        visible={isAvatarModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsAvatarModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, shadows.elevated]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Choose Spiritual Avatar</Text>
+              <TouchableOpacity
+                onPress={() => setIsAvatarModalOpen(false)}
+                style={styles.closeBtn}
+              >
+                <Text style={styles.closeBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.avatarModalSub}>
+              Select a sacred avatar representing your devotion during Vihar seva
+            </Text>
+
+            <View style={styles.avatarGrid}>
+              {AVATAR_PRESETS.map((preset) => {
+                const isSelected =
+                  (profile?.avatar_url || selectedAvatarId) === preset.id;
+                return (
+                  <TouchableOpacity
+                    key={preset.id}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectAvatar(preset)}
+                    style={[
+                      styles.avatarGridItem,
+                      isSelected && styles.avatarGridItemActive,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.avatarCircleSmall,
+                        { backgroundColor: preset.bgColor },
+                        isSelected && { borderColor: colors.gold, borderWidth: 3 },
+                      ]}
+                    >
+                      <Text style={styles.avatarInitialsSmall}>
+                        {preset.initials}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.avatarGridLabel,
+                        isSelected && styles.avatarGridLabelActive,
+                      ]}
+                    >
+                      {preset.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* NESTED AREA PICKER MODAL */}
       <Modal
         visible={areaPickerOpen}
@@ -493,12 +695,11 @@ export const SevakProfileScreen = () => {
                 onPress={() => setAreaPickerOpen(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <Text style={styles.closeBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBox}>
-              <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
                 placeholder="Search area..."
                 placeholderTextColor={colors.textMuted}
@@ -531,7 +732,7 @@ export const SevakProfileScreen = () => {
                     >
                       {item}
                     </Text>
-                    {isSelected ? <Text style={styles.checkmarkText}>✓</Text> : null}
+                    {isSelected ? <Text style={styles.checkmarkText}>Active</Text> : null}
                   </TouchableOpacity>
                 );
               }}
@@ -539,6 +740,21 @@ export const SevakProfileScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* LOGOUT CONFIRMATION DIALOG */}
+      <ConfirmationDialog
+        visible={isLogoutModalOpen}
+        title="Logout Account"
+        message="Are you sure you want to log out of Jinaarya Vihar Setu?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        isDestructive
+        onConfirm={() => {
+          setIsLogoutModalOpen(false);
+          logout();
+        }}
+        onCancel={() => setIsLogoutModalOpen(false)}
+      />
     </View>
   );
 };
@@ -565,19 +781,24 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   avatarGlowRing: {
+    position: 'relative',
     padding: 4,
     borderRadius: 50,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: colors.gold,
     marginBottom: spacing.sm,
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.deepMaroon,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarInitials: {
+    ...typography.h2,
+    color: colors.warmIvory,
+    fontWeight: '800',
   },
   userName: {
     ...typography.h2,
@@ -610,15 +831,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  profileActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
   editProfileChip: {
     backgroundColor: colors.softCream,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   editProfileChipText: {
+    ...typography.caption,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+  },
+  avatarPickerChip: {
+    backgroundColor: '#FFF8E7',
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  avatarPickerChipText: {
     ...typography.caption,
     color: colors.deepMaroon,
     fontWeight: '700',
@@ -752,7 +990,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   modalTitle: {
     ...typography.h3,
@@ -762,9 +1000,9 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   closeBtnText: {
-    fontSize: 20,
+    fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   modalScroll: {
     paddingBottom: spacing.xxl,
@@ -819,6 +1057,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.deepMaroon,
   },
+  ageGenderRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  ageBox: {
+    flex: 1,
+  },
+  genderBox: {
+    flex: 1.5,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  genderChip: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+  },
+  genderChipActive: {
+    backgroundColor: colors.deepMaroon,
+    borderColor: colors.deepMaroon,
+  },
+  genderChipText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  genderChipTextActive: {
+    color: colors.warmIvory,
+    fontWeight: '700',
+  },
   bloodChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -856,6 +1131,57 @@ const styles = StyleSheet.create({
   modalSaveBtn: {
     flex: 1.5,
   },
+
+  /* AVATAR MODAL */
+  avatarModalSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  avatarGridItem: {
+    width: '30%',
+    alignItems: 'center',
+    padding: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  avatarGridItemActive: {
+    backgroundColor: '#FFF8E7',
+    borderColor: colors.gold,
+  },
+  avatarCircleSmall: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  avatarInitialsSmall: {
+    ...typography.bodyMedium,
+    color: colors.warmIvory,
+    fontWeight: '800',
+  },
+  avatarGridLabel: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  avatarGridLabelActive: {
+    color: colors.deepMaroon,
+    fontWeight: '700',
+  },
+
   aboutCard: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -896,8 +1222,6 @@ const styles = StyleSheet.create({
     maxHeight: '75%',
   },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.softCream,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
@@ -905,12 +1229,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     marginBottom: spacing.md,
   },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: spacing.xs,
-  },
   searchInput: {
-    flex: 1,
     paddingVertical: 10,
     ...typography.bodyMedium,
     color: colors.textPrimary,
@@ -940,7 +1259,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   checkmarkText: {
-    fontSize: 16,
+    fontSize: 12,
     color: colors.statusSafe,
     fontWeight: '700',
   },

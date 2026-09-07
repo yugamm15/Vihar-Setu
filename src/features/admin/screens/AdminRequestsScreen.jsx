@@ -52,10 +52,16 @@ export const AdminRequestsScreen = ({ navigation }) => {
     type: 'SUCCESS', // SUCCESS | INFO | ERROR
   });
 
+  const [pendingBadgeCount, setPendingBadgeCount] = useState(0);
+
   const loadRequests = useCallback(async () => {
     setIsLoading(true);
-    const { data } = await adminService.fetchAllRequests(activeFilter);
+    const [{ data }, metrics] = await Promise.all([
+      adminService.fetchAllRequests(activeFilter),
+      adminService.fetchDashboardMetrics(),
+    ]);
     setRequests(data || []);
+    setPendingBadgeCount(metrics?.pendingRequests || 0);
     setIsLoading(false);
   }, [activeFilter]);
 
@@ -230,7 +236,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
                 activeFilter === 'PENDING' && styles.filterPillTextActive,
               ]}
             >
-              Pending {pendingCount > 0 ? `(${pendingCount})` : ''}
+              Pending {pendingBadgeCount > 0 ? `(${pendingBadgeCount})` : ''}
             </Text>
           </TouchableOpacity>
 

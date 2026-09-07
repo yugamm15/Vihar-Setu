@@ -1,7 +1,19 @@
 import { supabase } from '../../../core/config/supabase';
 import { ROLES } from '../../../core/constants/roles';
 
+const requestListeners = new Set();
+
 export const adminService = {
+  notifyListeners() {
+    requestListeners.forEach((fn) => {
+      try {
+        fn();
+      } catch (e) {
+        console.warn('[AdminService] Listener notification error:', e);
+      }
+    });
+  },
+
   /**
    * Helper: Get Set of all Admin and Super Admin user IDs from Supabase
    */
@@ -98,12 +110,12 @@ export const adminService = {
           updated_at: new Date().toISOString(),
         })
         .eq('id', userId)
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
 
-      return { data, error: null };
+      this.notifyListeners();
+      return { data: data?.[0] || null, error: null };
     } catch (e) {
       console.warn('[AdminService] Error approving request:', e);
       return { data: null, error: e };
@@ -123,12 +135,12 @@ export const adminService = {
           updated_at: new Date().toISOString(),
         })
         .eq('id', userId)
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
 
-      return { data, error: null };
+      this.notifyListeners();
+      return { data: data?.[0] || null, error: null };
     } catch (e) {
       console.warn('[AdminService] Error rejecting request:', e);
       return { data: null, error: e };
@@ -146,6 +158,7 @@ export const adminService = {
         .eq('id', userId);
 
       if (error) throw error;
+      this.notifyListeners();
       return { error: null };
     } catch (e) {
       return { error: e };
@@ -198,6 +211,10 @@ export const adminService = {
    * Subscribe to Realtime Profile changes (with unique channel instance)
    */
   subscribeToRequests(onUpdate) {
+    if (onUpdate) {
+      requestListeners.add(onUpdate);
+    }
+
     const channelId = `admin_req_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const channel = supabase
       .channel(channelId)
@@ -209,12 +226,15 @@ export const adminService = {
           table: 'profiles',
         },
         () => {
-          if (onUpdate) onUpdate();
+          this.notifyListeners();
         }
       )
       .subscribe();
 
     return () => {
+      if (onUpdate) {
+        requestListeners.delete(onUpdate);
+      }
       supabase.removeChannel(channel);
     };
   },

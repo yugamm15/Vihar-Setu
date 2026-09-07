@@ -15,7 +15,11 @@ import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { AppHeader } from '../../../shared/components/AppHeader';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { SecondaryButton } from '../../../shared/components/SecondaryButton';
-import { LogoutIcon } from '../../../shared/components/CustomSvgIcons';
+import {
+  LogoutIcon,
+  ShieldIcon,
+  CheckCircleIcon,
+} from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { authService } from '../../auth/services/authService';
 import { t } from '../../../core/localization/i18n';
@@ -146,7 +150,7 @@ export const SevakPendingApprovalScreen = () => {
               { transform: [{ scale: pulseAnim }] },
             ]}
           >
-            <Text style={styles.iconSymbol}>⏳</Text>
+            <ShieldIcon size={32} color={colors.saffron} />
           </Animated.View>
 
           <View style={styles.badge}>
@@ -160,7 +164,7 @@ export const SevakPendingApprovalScreen = () => {
 
           {/* Security Notice Box */}
           <View style={styles.noticeBox}>
-            <Text style={styles.noticeIcon}>🛡️</Text>
+            <ShieldIcon size={20} color={colors.deepMaroon} />
             <Text style={styles.noticeText}>{t('approval.notice_text')}</Text>
           </View>
         </View>
@@ -261,14 +265,14 @@ export const SevakPendingApprovalScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.customModalCard, shadows.elevated]}>
             <View style={styles.customModalIconCircle}>
-              <Text style={styles.customModalIconText}>⏳</Text>
+              <ShieldIcon size={28} color={colors.saffron} />
             </View>
 
             <Text style={styles.customModalTitle}>Status: Under Review</Text>
             <Text style={styles.customModalBody}>
               Your registration is currently awaiting verification from the Administrator. 
               {'\n\n'}
-              You will automatically gain full access as soon as your request is approved!
+              You will automatically gain full access as soon as your request is approved.
             </Text>
 
             <PrimaryButton
@@ -281,7 +285,7 @@ export const SevakPendingApprovalScreen = () => {
         </View>
       </Modal>
 
-      {/* TOP HEADER ONLY LOGOUT MODAL (Keeps registration record in database) */}
+      {/* TOP HEADER ONLY LOGOUT MODAL */}
       <Modal
         visible={logoutModalVisible}
         transparent
@@ -326,7 +330,7 @@ export const SevakPendingApprovalScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.customModalCard, shadows.elevated]}>
             <View style={styles.cancelIconCircle}>
-              <Text style={styles.customModalIconText}>⚠️</Text>
+              <ShieldIcon size={28} color={colors.statusEmergency} />
             </View>
 
             <Text style={styles.customModalTitle}>Cancel & Delete Request?</Text>
@@ -360,7 +364,7 @@ export const SevakPendingApprovalScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.successIconWrapper}>
-              <Text style={styles.modalIconSymbol}>🎉</Text>
+              <CheckCircleIcon size={36} color={colors.statusSafe} />
             </View>
             <Text style={styles.modalTitle}>{t('approval.accepted_title')}</Text>
             <Text style={styles.modalSubtitle}>{t('approval.accepted_msg')}</Text>
@@ -383,7 +387,7 @@ export const SevakPendingApprovalScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.rejectIconWrapper}>
-              <Text style={styles.modalIconSymbol}>⚠️</Text>
+              <ShieldIcon size={36} color={colors.statusEmergency} />
             </View>
             <Text style={styles.modalRejectTitle}>
               {t('approval.rejected_title')}
@@ -437,9 +441,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.saffron,
   },
-  iconSymbol: {
-    fontSize: 32,
-  },
   badge: {
     backgroundColor: '#FFF3CD',
     paddingHorizontal: spacing.md,
@@ -477,9 +478,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  noticeIcon: {
-    fontSize: 20,
-  },
   noticeText: {
     ...typography.caption,
     color: colors.textPrimary,
@@ -497,10 +495,11 @@ const styles = StyleSheet.create({
   sectionHeading: {
     ...typography.bodyMedium,
     color: colors.deepMaroon,
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: spacing.md,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   detailRow: {
     flexDirection: 'row',
@@ -598,9 +597,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
-  customModalIconText: {
-    fontSize: 28,
-  },
   customModalTitle: {
     ...typography.h3,
     color: colors.deepMaroon,
@@ -640,9 +636,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-  },
-  modalIconSymbol: {
-    fontSize: 34,
   },
   modalTitle: {
     ...typography.h3,

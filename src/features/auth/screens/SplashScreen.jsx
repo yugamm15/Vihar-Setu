@@ -85,10 +85,12 @@ export const SplashScreen = ({ navigation }) => {
           />
         </View>
 
-        <Text style={styles.appName}>{t('splash.title')}</Text>
+        {/* Crisp, Clear, High-Contrast Branding */}
+        <Text style={styles.appNameEnglish}>Vihar Setu</Text>
+        <Text style={styles.appNameVernacular}>વિહાર સેતુ</Text>
         <Text style={styles.subtitle}>{t('splash.subtitle')}</Text>
         <View style={styles.goldDivider} />
-        <Text style={styles.parentName}>{t('parent_group')}</Text>
+        <Text style={styles.parentName}>જિનાર્ય વિહાર સેવા • Jinaarya Vihar Seva</Text>
       </Animated.View>
 
       <View style={styles.footer}>
@@ -109,49 +111,69 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   emblemWrapper: {
-    marginBottom: spacing.xl,
-    padding: spacing.sm,
+    marginBottom: spacing.lg,
+    padding: spacing.xs + 2,
     borderRadius: 9999,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderWidth: 2,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2.5,
     borderColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
   },
   logoImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
   },
-  appName: {
+  appNameEnglish: {
     ...typography.h1,
     color: colors.warmIvory,
-    fontSize: 30,
+    fontSize: 32,
+    fontWeight: '900',
     textAlign: 'center',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  appNameVernacular: {
+    fontSize: 22,
+    color: '#FCD34D',
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 4,
+    letterSpacing: 0.5,
   },
   subtitle: {
     ...typography.bodyMedium,
-    color: colors.goldLight,
-    marginTop: spacing.xs + 2,
+    color: colors.warmIvory,
+    opacity: 0.92,
+    marginTop: spacing.sm,
     textAlign: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   goldDivider: {
-    width: 60,
-    height: 2.5,
+    width: 70,
+    height: 3,
     backgroundColor: colors.gold,
     marginVertical: spacing.lg,
     borderRadius: 2,
   },
   parentName: {
     ...typography.caption,
-    color: colors.goldMuted,
-    letterSpacing: 0.5,
+    color: '#FCD34D',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
   footer: {
     position: 'absolute',
@@ -160,6 +182,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...typography.caption,
-    color: colors.goldMuted,
+    color: colors.warmIvory,
+    opacity: 0.8,
+    letterSpacing: 0.5,
   },
 });

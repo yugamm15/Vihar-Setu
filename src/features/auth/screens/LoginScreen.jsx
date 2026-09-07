@@ -113,8 +113,8 @@ export const LoginScreen = ({ navigation }) => {
         style={[
           styles.topBanner,
           {
-            paddingTop: Math.max(insets.top + 20, 52),
-            paddingBottom: spacing.xxl,
+            paddingTop: Math.max(insets.top + 16, 44),
+            paddingBottom: spacing.xxl + 8,
           },
         ]}
       >
@@ -125,8 +125,9 @@ export const LoginScreen = ({ navigation }) => {
             resizeMode="contain"
           />
         </View>
-        <Text style={styles.bannerTitle}>{t('app_name')}</Text>
-        <Text style={styles.bannerSubtitle}>{t('parent_group')}</Text>
+        <Text style={styles.bannerTitleEnglish}>Vihar Setu</Text>
+        <Text style={styles.bannerTitleVernacular}>વિહાર સેતુ</Text>
+        <Text style={styles.bannerSubtitle}>જિનાર્ય વિહાર સેવા • Jinaarya Vihar Seva</Text>
       </View>
 
       {/* Main Login Card */}
@@ -141,25 +142,23 @@ export const LoginScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.card, shadows.card]}>
-          <View style={styles.cardHeaderRow}>
-            <View>
-              <Text style={styles.cardTitle}>
-                {isAdminMode
-                  ? 'Super Admin Login'
-                  : t('auth.login_title')}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {isAdminMode
-                  ? 'Enter your Super Admin credentials to access console'
-                  : t('auth.login_subtitle')}
-              </Text>
-            </View>
-
+          <View style={styles.cardHeaderCenter}>
             {isAdminMode && (
               <View style={styles.superBadge}>
                 <Text style={styles.superBadgeText}>SUPER ADMIN CONSOLE</Text>
               </View>
             )}
+
+            <Text style={styles.cardTitle}>
+              {isAdminMode
+                ? 'Super Admin Login'
+                : t('auth.login_title')}
+            </Text>
+            <Text style={styles.cardSubtitle}>
+              {isAdminMode
+                ? 'Enter your Super Admin credentials to access console'
+                : t('auth.login_subtitle')}
+            </Text>
           </View>
 
           {/* Email Input */}
@@ -175,11 +174,6 @@ export const LoginScreen = ({ navigation }) => {
             autoCapitalize="none"
             autoCorrect={false}
             error={localError || error}
-            leftElement={
-              <View style={styles.emailIconBadge}>
-                <Text style={styles.emailIconText}>✉️</Text>
-              </View>
-            }
           />
 
           {/* Password Input (Shown for Admin Mode) */}
@@ -195,18 +189,13 @@ export const LoginScreen = ({ navigation }) => {
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
-              leftElement={
-                <View style={styles.emailIconBadge}>
-                  <Text style={styles.emailIconText}>🔒</Text>
-                </View>
-              }
               rightElement={
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Text style={styles.showPassText}>
-                    {showPassword ? 'Hide 👁️' : 'Show 👁️'}
+                    {showPassword ? 'Hide' : 'Show'}
                   </Text>
                 </TouchableOpacity>
               }
@@ -237,8 +226,8 @@ export const LoginScreen = ({ navigation }) => {
           >
             <Text style={styles.toggleModeText}>
               {isAdminMode
-                ? '← Switch to Sevak Email OTP Login'
-                : '🔑 Super Admin Password Login'}
+                ? 'Switch to Sevak Email OTP Login'
+                : 'Super Admin Password Login'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -277,19 +266,31 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
   },
-  bannerTitle: {
+  bannerTitleEnglish: {
     ...typography.h2,
     color: colors.warmIvory,
-    fontSize: 24,
+    fontSize: 28,
     marginTop: spacing.xs,
     textAlign: 'center',
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  bannerTitleVernacular: {
+    fontSize: 18,
+    color: '#FCD34D',
+    marginTop: 2,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   bannerSubtitle: {
     ...typography.caption,
-    color: colors.goldLight,
-    marginTop: 3,
+    color: colors.warmIvory,
+    opacity: 0.9,
+    marginTop: 4,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   scrollContent: {
     padding: spacing.lg,
@@ -304,42 +305,38 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     marginTop: -spacing.lg,
   },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
+  cardHeaderCenter: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    width: '100%',
   },
   cardTitle: {
     ...typography.h3,
     color: colors.deepMaroon,
     marginBottom: 4,
+    textAlign: 'center',
+    fontWeight: '800',
   },
   cardSubtitle: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
-    maxWidth: 240,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   superBadge: {
     backgroundColor: colors.deepMaroon,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
     borderRadius: borderRadius.full,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.gold,
   },
   superBadgeText: {
     fontSize: 9,
     fontWeight: '800',
     color: colors.warmIvory,
     letterSpacing: 0.5,
-  },
-  emailIconBadge: {
-    paddingRight: spacing.xs,
-    borderRightWidth: 1,
-    borderRightColor: colors.inputBorder,
-    marginRight: spacing.xs,
-  },
-  emailIconText: {
-    fontSize: 16,
   },
   showPassText: {
     ...typography.caption,

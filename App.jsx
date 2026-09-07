@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { useAuthStore } from './src/features/auth/hooks/useAuthStore';
+import { GlobalAlertContainer } from './src/shared/components/GlobalAlertContainer';
 
 export default function App() {
   const { initAuth } = useAuthStore();
@@ -16,6 +17,7 @@ export default function App() {
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
         <AppNavigator />
+        <GlobalAlertContainer />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
