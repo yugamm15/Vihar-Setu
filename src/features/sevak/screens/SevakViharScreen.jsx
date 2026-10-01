@@ -292,7 +292,7 @@ export const SevakViharScreen = ({ navigation }) => {
           /* ============================================================ */
           <>
             {/* 30-Minute Wake-up Alarm Banner (if scheduled vihar exists) */}
-            {showWakeupAlert && alarmInfo ? (
+            {showWakeupAlert && activePreAlert ? (
               <View style={[styles.alarmBannerCard, shadows.elevated]}>
                 <View style={styles.alarmBannerHeader}>
                   <View style={styles.alarmIconCircle}>
@@ -303,7 +303,7 @@ export const SevakViharScreen = ({ navigation }) => {
                       30-Min Pre-Vihar Wake-up Alert
                     </Text>
                     <Text style={styles.alarmBannerSub}>
-                      Scheduled Alarm set for {alarmInfo.alarmTimeString}
+                      Scheduled Alarm set for {activePreAlert.alarmTimeString}
                     </Text>
                   </View>
                 </View>

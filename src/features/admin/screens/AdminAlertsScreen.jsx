@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   StatusBar,
   Linking,
   Modal,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
@@ -18,8 +20,11 @@ import {
   PhoneIcon,
   CheckCircleIcon,
   ShieldIcon,
+  CloseIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
+import { viharService } from '../../vihar/services/viharService';
+import { adminService } from '../services/adminService';
 
 const SAMPLE_ALERTS = [
   {
@@ -64,6 +69,53 @@ export const AdminAlertsScreen = () => {
   const [alerts, setAlerts] = useState(SAMPLE_ALERTS);
   const [activeTab, setActiveTab] = useState('ACTIVE'); // ACTIVE | RESOLVED | ALL
   const [resolvedModalVisible, setResolvedModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadAlerts = useCallback(async () => {
+    try {
+      const { data, error } = await viharService.getAllAlerts();
+      if (!error && data && data.length > 0) {
+        const formatted = data.map((em) => ({
+          id: em.id,
+          type: em.trigger_type || 'EMERGENCY',
+          severity: em.status === 'TRIGGERED' || em.status === 'ESCALATING' ? 'EMERGENCY' : 'WARNING',
+          title: em.trigger_type === 'MANUAL_SOS' ? 'Manual Emergency SOS Triggered' : 'Safety Anomaly Detected',
+          message: em.resolution_notes || `Emergency alert triggered at coordinates (${em.latitude.toFixed(4)}, ${em.longitude.toFixed(4)}) with ${em.battery_percentage || 80}% battery.`,
+          sevakName: em.profiles?.full_name || 'Vihar Sevak',
+          phone: em.profiles?.phone || '+919876500000',
+          location: `${em.profiles?.area || 'Surat'}, ${em.profiles?.city || 'Surat'}`,
+          timestamp: new Date(em.triggered_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          status: em.status === 'RESOLVED' || em.status === 'FALSE_ALARM' ? 'RESOLVED' : 'ACTIVE',
+        }));
+        setAlerts(formatted);
+      } else {
+        setAlerts(SAMPLE_ALERTS);
+      }
+    } catch (e) {
+      setAlerts(SAMPLE_ALERTS);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAlerts();
+
+    const unsubscribe = adminService.subscribeToRequests(() => {
+      loadAlerts();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [loadAlerts]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAlerts();
+    setRefreshing(false);
+  };
 
   const filteredAlerts = alerts.filter((a) => {
     if (activeTab === 'ACTIVE') return a.status === 'ACTIVE';
@@ -71,11 +123,16 @@ export const AdminAlertsScreen = () => {
     return true;
   });
 
-  const handleResolveAlert = (alertId) => {
+  const handleResolveAlert = async (alertId) => {
+    // If it's a real DB alert (UUID), update Supabase
+    if (alertId && alertId.length > 10) {
+      await viharService.resolveEmergency(alertId);
+    }
     setAlerts((prev) =>
       prev.map((a) => (a.id === alertId ? { ...a, status: 'RESOLVED' } : a))
     );
     setResolvedModalVisible(true);
+    adminService.notifyListeners();
   };
 
   const handleCall = (phone) => {
@@ -140,77 +197,99 @@ export const AdminAlertsScreen = () => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.saffron, colors.deepMaroon]}
+          />
+        }
       >
         {filteredAlerts.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>🛡️</Text>
-            <Text style={styles.emptyTitle}>No Active Alerts</Text>
-            <Text style={styles.emptySub}>
-              All active Vihars in Surat are moving safely within their designated routes.
+          <View style={[styles.emptyContainer, shadows.card]}>
+            <View style={styles.emptyIconCircle}>
+              <CheckCircleIcon size={36} color={colors.statusSafe} />
+            </View>
+            <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} Alerts</Text>
+            <Text style={styles.emptySubtitle}>
+              All active Vihar corridors in Surat are operating normally with zero safety deviations.
             </Text>
           </View>
         ) : (
-          filteredAlerts.map((item) => {
-            const isEmergency = item.severity === 'EMERGENCY';
-            const isActive = item.status === 'ACTIVE';
+          filteredAlerts.map((alert) => {
+            const isEmergency = alert.severity === 'EMERGENCY';
+            const isActive = alert.status === 'ACTIVE';
 
             return (
               <View
-                key={item.id}
+                key={alert.id}
                 style={[
                   styles.alertCard,
                   isEmergency ? styles.alertCardEmergency : styles.alertCardWarning,
                   shadows.card,
                 ]}
               >
+                {/* Header */}
                 <View style={styles.alertHeaderRow}>
                   <View
                     style={[
-                      styles.alertTypeBadge,
-                      isEmergency ? styles.badgeRed : styles.badgeAmber,
+                      styles.typeBadge,
+                      isEmergency ? styles.typeBadgeEmergency : styles.typeBadgeWarning,
                     ]}
                   >
                     <Text
                       style={[
-                        styles.alertTypeText,
-                        isEmergency ? styles.badgeTextRed : styles.badgeTextAmber,
+                        styles.typeBadgeText,
+                        isEmergency
+                          ? styles.typeBadgeTextEmergency
+                          : styles.typeBadgeTextWarning,
                       ]}
                     >
-                      {item.type}
+                      {alert.type}
                     </Text>
                   </View>
-                  <Text style={styles.alertTime}>{item.timestamp}</Text>
+                  <Text style={styles.timestampText}>{alert.timestamp}</Text>
                 </View>
 
-                <Text style={styles.alertTitle}>{item.title}</Text>
-                <Text style={styles.alertMsg}>{item.message}</Text>
+                {/* Title & Message */}
+                <Text style={styles.alertTitle}>{alert.title}</Text>
+                <Text style={styles.alertMessage}>{alert.message}</Text>
 
-                <View style={styles.detailsBox}>
-                  <Text style={styles.detailLine}>
-                    👤 <Text style={styles.bold}>Sevak:</Text> {item.sevakName}
+                {/* Sevak Metadata */}
+                <View style={styles.sevakMetaBox}>
+                  <Text style={styles.sevakMetaText}>
+                    <Text style={styles.boldText}>Sevak: </Text>{alert.sevakName}
                   </Text>
-                  <Text style={styles.detailLine}>
-                    📍 <Text style={styles.bold}>Location:</Text> {item.location}
+                  <Text style={styles.sevakMetaText}>
+                    <Text style={styles.boldText}>Location: </Text>{alert.location}
                   </Text>
                 </View>
 
+                {/* Action Buttons */}
                 <View style={styles.actionRow}>
                   <TouchableOpacity
-                    onPress={() => handleCall(item.phone)}
-                    style={styles.callActionBtn}
+                    activeOpacity={0.85}
+                    onPress={() => handleCall(alert.phone)}
+                    style={styles.callBtn}
                   >
                     <PhoneIcon size={16} color={colors.warmIvory} />
-                    <Text style={styles.callActionText}>Call Sevak</Text>
+                    <Text style={styles.callBtnText}>Call Sevak</Text>
                   </TouchableOpacity>
 
-                  {isActive && (
+                  {isActive ? (
                     <TouchableOpacity
-                      onPress={() => handleResolveAlert(item.id)}
-                      style={styles.resolveActionBtn}
+                      activeOpacity={0.85}
+                      onPress={() => handleResolveAlert(alert.id)}
+                      style={styles.resolveBtn}
                     >
                       <CheckCircleIcon size={16} color={colors.statusSafe} />
-                      <Text style={styles.resolveActionText}>Resolve</Text>
+                      <Text style={styles.resolveBtnText}>Resolve</Text>
                     </TouchableOpacity>
+                  ) : (
+                    <View style={styles.resolvedBadge}>
+                      <CheckCircleIcon size={14} color={colors.statusSafe} />
+                      <Text style={styles.resolvedBadgeText}>Resolved</Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -226,22 +305,20 @@ export const AdminAlertsScreen = () => {
         animationType="fade"
         onRequestClose={() => setResolvedModalVisible(false)}
       >
-        <View style={styles.modalOverlayCenter}>
-          <View style={[styles.feedbackCard, shadows.elevated]}>
-            <View style={styles.feedbackIconCircle}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, shadows.elevated]}>
+            <View style={styles.modalIconCircle}>
               <CheckCircleIcon size={32} color={colors.statusSafe} />
             </View>
-
-            <Text style={styles.feedbackTitle}>Alert Resolved</Text>
-            <Text style={styles.feedbackMsg}>
+            <Text style={styles.modalTitle}>Alert Resolved</Text>
+            <Text style={styles.modalMessage}>
               The safety alert has been marked as resolved and recorded in audit logs.
             </Text>
-
             <PrimaryButton
               title="OK"
               onPress={() => setResolvedModalVisible(false)}
               variant="saffron"
-              style={{ width: '100%' }}
+              style={styles.modalBtn}
             />
           </View>
         </View>
@@ -259,70 +336,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.deepMaroon,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomLeftRadius: borderRadius.lg,
-    borderBottomRightRadius: borderRadius.lg,
+    paddingBottom: spacing.sm,
     gap: spacing.xs,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 7,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: borderRadius.full,
+    paddingVertical: 8,
     alignItems: 'center',
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   tabBtnActive: {
     backgroundColor: colors.saffron,
   },
   tabBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.warmIvory,
+    ...typography.caption,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
   },
   tabBtnTextActive: {
     color: '#FFFFFF',
-    fontWeight: '800',
   },
   scrollContent: {
     padding: spacing.md,
     paddingBottom: spacing.xxxl,
   },
-  emptyCard: {
+  emptyContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.xl,
-    padding: spacing.xxl,
+    padding: spacing.xl,
     alignItems: 'center',
-    marginTop: spacing.xl,
     borderWidth: 1.5,
     borderColor: colors.cardBorder,
+    marginTop: spacing.xl,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.sm,
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     ...typography.h3,
     color: colors.deepMaroon,
     marginBottom: 4,
   },
-  emptySub: {
-    ...typography.bodySmall,
+  emptySubtitle: {
+    ...typography.bodyMedium,
     color: colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 20,
   },
   alertCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    borderWidth: 1.5,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
+    borderWidth: 1.5,
   },
   alertCardEmergency: {
     borderColor: colors.statusEmergency,
-    backgroundColor: '#FFF8F8',
+    backgroundColor: '#FFF9F9',
   },
   alertCardWarning: {
-    borderColor: '#FFEEBA',
+    borderColor: colors.cardBorder,
   },
   alertHeaderRow: {
     flexDirection: 'row',
@@ -330,136 +410,150 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
-  alertTypeBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
   },
-  badgeRed: {
-    backgroundColor: 'rgba(220, 53, 69, 0.15)',
+  typeBadgeEmergency: {
+    backgroundColor: '#FFEBEE',
   },
-  badgeAmber: {
-    backgroundColor: '#FFF3CD',
+  typeBadgeWarning: {
+    backgroundColor: '#FFF3E0',
   },
-  alertTypeText: {
+  typeBadgeText: {
     fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  badgeTextRed: {
+  typeBadgeTextEmergency: {
     color: colors.statusEmergency,
   },
-  badgeTextAmber: {
-    color: '#856404',
+  typeBadgeTextWarning: {
+    color: colors.statusWarning,
   },
-  alertTime: {
+  timestampText: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   alertTitle: {
-    ...typography.bodyLarge,
-    fontWeight: '700',
+    ...typography.h4,
     color: colors.deepMaroon,
-    marginTop: 2,
+    fontWeight: '700',
+    marginBottom: 2,
   },
-  alertMsg: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
+  alertMessage: {
+    ...typography.caption,
+    color: colors.textPrimary,
     lineHeight: 18,
-    marginTop: 4,
+    marginBottom: spacing.sm,
   },
-  detailsBox: {
+  sevakMetaBox: {
     backgroundColor: colors.softCream,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
-    marginVertical: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  detailLine: {
+  sevakMetaText: {
     ...typography.caption,
-    color: colors.textPrimary,
-    marginVertical: 2,
+    color: colors.textSecondary,
+    marginVertical: 1,
   },
-  bold: {
+  boldText: {
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.xs,
+    alignItems: 'center',
   },
-  callActionBtn: {
+  callBtn: {
     flex: 1,
-    flexDirection: 'row',
     backgroundColor: colors.deepMaroon,
     paddingVertical: 8,
     borderRadius: borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    gap: 6,
   },
-  callActionText: {
+  callBtnText: {
     ...typography.caption,
     color: colors.warmIvory,
     fontWeight: '700',
   },
-  resolveActionBtn: {
+  resolveBtn: {
     flex: 1,
-    flexDirection: 'row',
     backgroundColor: '#E8F5E9',
     borderWidth: 1,
     borderColor: colors.statusSafe,
     paddingVertical: 8,
     borderRadius: borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    gap: 6,
   },
-  resolveActionText: {
+  resolveBtnText: {
     ...typography.caption,
     color: colors.statusSafe,
     fontWeight: '700',
   },
-
-  /* MODAL */
-  modalOverlayCenter: {
+  resolvedBadge: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 8,
+    borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  resolvedBadgeText: {
+    ...typography.caption,
+    color: colors.statusSafe,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
-  feedbackCard: {
+  modalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
-    width: '90%',
-    maxWidth: 360,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.cardBorder,
+    width: '100%',
+    maxWidth: 340,
   },
-  feedbackIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  modalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E8F5E9',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8F5E9',
+    marginBottom: spacing.md,
     borderWidth: 2,
     borderColor: colors.statusSafe,
-    marginBottom: spacing.md,
   },
-  feedbackTitle: {
+  modalTitle: {
     ...typography.h3,
     color: colors.deepMaroon,
-    textAlign: 'center',
     marginBottom: spacing.xs,
   },
-  feedbackMsg: {
+  modalMessage: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
     marginBottom: spacing.lg,
-    marginTop: spacing.xs,
+  },
+  modalBtn: {
+    width: '100%',
   },
 });

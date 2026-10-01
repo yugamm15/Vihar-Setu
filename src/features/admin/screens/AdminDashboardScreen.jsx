@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   StatusBar,
   RefreshControl,
-  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
@@ -21,28 +21,79 @@ import {
   UserIcon,
   RequestsIcon,
   MapPinIcon,
+  AlertsBellIcon,
+  CheckCircleIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { adminService } from '../services/adminService';
+import { viharService } from '../../vihar/services/viharService';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
 import { t } from '../../../core/localization/i18n';
+
+const DEMO_LIVE_VIHARS = [
+  {
+    id: 'demo-1',
+    sangha: 'Pujya Sadhviji Shree Ratnamala Maharaj Saheb',
+    source: 'Athwagate Jinalay',
+    destination: 'Adajan Sangh',
+    leadSevak: 'Hetaben Mehta',
+    battery: '88%',
+    speed: '4.2 km/h',
+    status: SAFETY_STATUS.SAFE,
+  },
+  {
+    id: 'demo-2',
+    sangha: 'Pujya Sadhviji Shree Hitaprabha Maharaj Saheb',
+    source: 'Ghod Dod Road',
+    destination: 'Vesu Aradhana Bhavan',
+    leadSevak: 'Rekhaben Shah',
+    battery: '92%',
+    speed: '3.8 km/h',
+    status: SAFETY_STATUS.SAFE,
+  },
+];
 
 export const AdminDashboardScreen = ({ navigation }) => {
   const { profile } = useAuthStore();
   const [metrics, setMetrics] = useState({
     pendingRequests: 0,
     activeSevaks: 0,
-    activeVihars: 3,
-    safeCount: 3,
+    activeVihars: 2,
+    safeCount: 2,
     warningCount: 0,
     emergencyCount: 0,
   });
+  const [activeViharsList, setActiveViharsList] = useState(DEMO_LIVE_VIHARS);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = async () => {
-    const data = await adminService.fetchDashboardMetrics();
-    setMetrics(data);
-  };
+  const loadData = useCallback(async () => {
+    try {
+      const [metricsData, { data: dbVihars }] = await Promise.all([
+        adminService.fetchDashboardMetrics(),
+        viharService.getAllActiveVihars(),
+      ]);
+
+      setMetrics(metricsData);
+
+      if (dbVihars && dbVihars.length > 0) {
+        const formatted = dbVihars.map((v) => ({
+          id: v.id,
+          sangha: v.title || 'Pujya Sadhviji Maharaj Saheb',
+          source: v.source_name || 'Starting Upashray',
+          destination: v.dest_name || 'Designated Upashray',
+          leadSevak: v.profiles?.full_name || 'Active Volunteer',
+          battery: '95%',
+          speed: '4.0 km/h',
+          status: v.safety_status || SAFETY_STATUS.SAFE,
+        }));
+        setActiveViharsList(formatted);
+      } else {
+        setActiveViharsList(DEMO_LIVE_VIHARS);
+      }
+    } catch (e) {
+      console.warn('[AdminDashboard] Error loading dashboard data:', e);
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -55,7 +106,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [loadData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -78,7 +129,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.saffron]}
+            colors={[colors.saffron, colors.deepMaroon]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -95,13 +146,13 @@ export const AdminDashboardScreen = ({ navigation }) => {
                 <Text style={styles.urgentBadgeText}>ACTION REQUIRED</Text>
               </View>
               <Text style={styles.urgentCountText}>
-                🔴 {metrics.pendingRequests} Pending
+                {metrics.pendingRequests} Pending Approvals
               </Text>
             </View>
 
             <Text style={styles.urgentTitle}>New Sevak Registration Requests</Text>
             <Text style={styles.urgentSub}>
-              New volunteers have submitted their profile details and are waiting for your approval to start seva.
+              New volunteers have submitted their profile details and are waiting for your verification to start seva.
             </Text>
 
             <View style={styles.urgentActionRow}>
@@ -118,7 +169,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
             <View style={[styles.statIconCircle, { backgroundColor: '#FFF8E7' }]}>
               <NavigationIcon size={20} color={colors.saffron} />
             </View>
-            <Text style={styles.statNumber}>{metrics.activeVihars}</Text>
+            <Text style={styles.statNumber}>{activeViharsList.length}</Text>
             <Text style={styles.statLabel}>Active Vihars</Text>
           </View>
 
@@ -128,7 +179,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
               <ShieldIcon size={20} color={colors.statusSafe} />
             </View>
             <Text style={[styles.statNumber, { color: colors.statusSafe }]}>
-              {metrics.safeCount}
+              {metrics.safeCount || activeViharsList.length}
             </Text>
             <Text style={styles.statLabel}>Safe Status</Text>
           </View>
@@ -147,7 +198,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
           {/* Emergency SOS */}
           <View style={[styles.statBox, shadows.card]}>
             <View style={[styles.statIconCircle, { backgroundColor: '#F8D7DA' }]}>
-              <Text style={{ fontSize: 18 }}>🚨</Text>
+              <AlertsBellIcon size={20} color={colors.statusEmergency} />
             </View>
             <Text style={[styles.statNumber, { color: colors.statusEmergency }]}>
               {metrics.emergencyCount}
@@ -208,45 +259,24 @@ export const AdminDashboardScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Active Vihar Item 1 */}
-        <View style={[styles.viharCard, shadows.card]}>
-          <View style={styles.viharHeader}>
-            <View style={styles.viharHeaderInfo}>
-              <Text style={styles.viharSangha}>
-                Pujya Sadhviji Shree Ratnamala Maharaj Saheb
-              </Text>
-              <Text style={styles.viharRoute}>
-                📍 Athwagate Jinalay ➔ Adajan Sangh
-              </Text>
+        {activeViharsList.map((item) => (
+          <View key={item.id} style={[styles.viharCard, shadows.card]}>
+            <View style={styles.viharHeader}>
+              <View style={styles.viharHeaderInfo}>
+                <Text style={styles.viharSangha}>{item.sangha}</Text>
+                <Text style={styles.viharRoute}>
+                  {item.source} → {item.destination}
+                </Text>
+              </View>
+              <StatusBadge status={item.status} />
             </View>
-            <StatusBadge status={SAFETY_STATUS.SAFE} />
-          </View>
 
-          <View style={styles.viharFooter}>
-            <Text style={styles.viharSevak}>👤 Lead Sevak: Hetaben Mehta</Text>
-            <Text style={styles.viharMetric}>🔋 88% • 4.2 km/h</Text>
-          </View>
-        </View>
-
-        {/* Active Vihar Item 2 */}
-        <View style={[styles.viharCard, shadows.card]}>
-          <View style={styles.viharHeader}>
-            <View style={styles.viharHeaderInfo}>
-              <Text style={styles.viharSangha}>
-                Pujya Sadhviji Shree Hitaprabha Maharaj Saheb
-              </Text>
-              <Text style={styles.viharRoute}>
-                📍 Ghod Dod Road ➔ Vesu Aradhana Bhavan
-              </Text>
+            <View style={styles.viharFooter}>
+              <Text style={styles.viharSevak}>Lead Sevak: {item.leadSevak}</Text>
+              <Text style={styles.viharMetric}>Battery: {item.battery} • {item.speed}</Text>
             </View>
-            <StatusBadge status={SAFETY_STATUS.SAFE} />
           </View>
-
-          <View style={styles.viharFooter}>
-            <Text style={styles.viharSevak}>👤 Lead Sevak: Rekhaben Shah</Text>
-            <Text style={styles.viharMetric}>🔋 92% • 3.8 km/h</Text>
-          </View>
-        </View>
+        ))}
       </ScrollView>
     </View>
   );

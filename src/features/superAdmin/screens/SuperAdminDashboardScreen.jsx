@@ -11,41 +11,71 @@ import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { AppHeader } from '../../../shared/components/AppHeader';
-import { LogoutIcon } from '../../../shared/components/CustomSvgIcons';
+import {
+  LogoutIcon,
+  UsersGroupIcon,
+  SettingsGearIcon,
+  LogsFileIcon,
+  ReportsChartIcon,
+  CheckCircleIcon,
+} from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
+import { useAlertStore } from '../../../shared/hooks/useAlertStore';
 import { t } from '../../../core/localization/i18n';
 
 export const SuperAdminDashboardScreen = ({ navigation }) => {
   const { profile, logout } = useAuthStore();
+  const { showAlert } = useAlertStore();
+
+  const handleLogout = () => {
+    showAlert({
+      type: 'CONFIRM',
+      title: 'Logout Super Admin',
+      message: 'Are you sure you want to end your Super Admin session on this device?',
+      confirmText: 'Yes, Logout',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        await logout();
+      },
+    });
+  };
 
   const superAdminModules = [
     {
       id: 'users',
-      title: t('super_admin.user_management'),
-      desc: 'Approve, verify, assign roles & disable users',
-      icon: '👥',
-      actionText: 'Manage Sevaks & Admins',
+      title: 'User & Sevak Verification',
+      desc: 'Approve, verify, assign roles & disable volunteer accounts',
+      icon: UsersGroupIcon,
+      bgColor: '#E8F5E9',
+      iconColor: colors.statusSafe,
+      targetTab: 'RequestsTab',
+    },
+    {
+      id: 'live',
+      title: 'Real-Time Vihar Radar',
+      desc: 'Live GPS corridor tracking, deviation detection & emergency signals',
+      icon: ReportsChartIcon,
+      bgColor: '#FFF8E7',
+      iconColor: colors.saffronDark,
+      targetTab: 'LiveTab',
+    },
+    {
+      id: 'alerts',
+      title: 'Emergency SOS & Alerts Center',
+      desc: 'High-priority SOS escalations, stationary alarms & route issues',
+      icon: LogsFileIcon,
+      bgColor: '#FFEBEE',
+      iconColor: colors.statusEmergency,
+      targetTab: 'AlertsTab',
     },
     {
       id: 'config',
-      title: t('super_admin.system_config'),
-      desc: 'GPS frequency, deviation threshold (50m), stationary timeout',
-      icon: '⚙️',
-      actionText: 'Tune Parameters',
-    },
-    {
-      id: 'audit',
-      title: t('super_admin.audit_logs'),
-      desc: 'Security event logs, role changes, emergency triggers',
-      icon: '📜',
-      actionText: 'View Audit Trail',
-    },
-    {
-      id: 'analytics',
-      title: t('super_admin.analytics'),
-      desc: 'Vihar volume, distance covered, incident resolution charts',
-      icon: '📊',
-      actionText: 'Open Analytics',
+      title: 'System Settings & Telemetry Limits',
+      desc: 'GPS frequency, 50m deviation threshold, stationary timeout',
+      icon: SettingsGearIcon,
+      bgColor: '#E3F2FD',
+      iconColor: '#1976D2',
+      targetTab: 'MoreTab',
     },
   ];
 
@@ -59,7 +89,7 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
         showLogo={true}
         rightElement={
           <TouchableOpacity
-            onPress={logout}
+            onPress={handleLogout}
             style={styles.logoutBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -68,7 +98,7 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.banner, shadows.subtle]}>
           <Text style={styles.bannerBadge}>CENTRAL GOVERNANCE</Text>
           <Text style={styles.bannerTitle}>System Control & Security Center</Text>
@@ -77,25 +107,28 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {superAdminModules.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.85}
-            onPress={() => alert(`Opening ${item.title} (Phase 23/24/25)`)}
-            style={[styles.moduleCard, shadows.card]}
-          >
-            <View style={styles.cardLeft}>
-              <View style={styles.iconCircle}>
-                <Text style={styles.moduleIconText}>{item.icon}</Text>
+        {superAdminModules.map((item) => {
+          const IconComp = item.icon;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate(item.targetTab)}
+              style={[styles.moduleCard, shadows.card]}
+            >
+              <View style={styles.cardLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: item.bgColor }]}>
+                  <IconComp size={22} color={item.iconColor} />
+                </View>
+                <View style={styles.moduleInfo}>
+                  <Text style={styles.moduleTitle}>{item.title}</Text>
+                  <Text style={styles.moduleDesc}>{item.desc}</Text>
+                </View>
               </View>
-              <View style={styles.moduleInfo}>
-                <Text style={styles.moduleTitle}>{item.title}</Text>
-                <Text style={styles.moduleDesc}>{item.desc}</Text>
-              </View>
-            </View>
-            <Text style={styles.arrowChevron}>➔</Text>
-          </TouchableOpacity>
-        ))}
+              <Text style={styles.arrowChevron}>›</Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -157,14 +190,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.softCream,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  moduleIconText: {
-    fontSize: 22,
   },
   moduleInfo: {
     flex: 1,
@@ -177,9 +204,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
+    lineHeight: 16,
   },
   arrowChevron: {
-    fontSize: 18,
+    fontSize: 22,
     color: colors.saffron,
     fontWeight: '700',
     marginLeft: spacing.sm,

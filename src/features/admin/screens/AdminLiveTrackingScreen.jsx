@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   StatusBar,
   Linking,
   Dimensions,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
@@ -21,12 +23,14 @@ import {
   NavigationIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
+import { viharService } from '../../vihar/services/viharService';
+import { adminService } from '../services/adminService';
 
 const { width } = Dimensions.get('window');
 
-const ACTIVE_VIHARS = [
+const DEMO_ACTIVE_VIHARS = [
   {
-    id: 'vihar-001',
+    id: 'demo-001',
     sangha: 'Pujya Sadhviji Shree Ratnamala Maharaj Saheb',
     leadSevak: 'Hetaben Mehta',
     phone: '+919876500000',
@@ -40,7 +44,7 @@ const ACTIVE_VIHARS = [
     coordinates: { lat: 21.1959, lng: 72.7933 },
   },
   {
-    id: 'vihar-002',
+    id: 'demo-002',
     sangha: 'Pujya Sadhviji Shree Hitaprabha Maharaj Saheb',
     leadSevak: 'Rekhaben Shah',
     phone: '+919876543210',
@@ -54,7 +58,7 @@ const ACTIVE_VIHARS = [
     coordinates: { lat: 21.1685, lng: 72.7845 },
   },
   {
-    id: 'vihar-003',
+    id: 'demo-003',
     sangha: 'Pujya Sadhviji Shree Samvegshriji Maharaj Saheb',
     leadSevak: 'Pravinbhai Shah',
     phone: '+919812345678',
@@ -70,9 +74,64 @@ const ACTIVE_VIHARS = [
 ];
 
 export const AdminLiveTrackingScreen = () => {
+  const [activeVihars, setActiveVihars] = useState(DEMO_ACTIVE_VIHARS);
+  const [isLiveFromDb, setIsLiveFromDb] = useState(false);
   const [filter, setFilter] = useState('ALL'); // ALL | SAFE | WARNING | EMERGENCY
+  const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredVihars = ACTIVE_VIHARS.filter((v) => {
+  const loadLiveVihars = useCallback(async () => {
+    try {
+      const { data, error } = await viharService.getAllActiveVihars();
+      if (!error && data && data.length > 0) {
+        const formatted = data.map((v) => ({
+          id: v.id,
+          sangha: v.title || 'Pujya Sadhviji Bhagwant',
+          leadSevak: v.profiles?.full_name || 'Active Sevak',
+          phone: v.profiles?.phone || '+919876500000',
+          currentLocation: v.source_name || 'Active Vihar Corridor, Surat',
+          destination: v.dest_name || 'Designated Upashray',
+          status: v.safety_status || SAFETY_STATUS.SAFE,
+          battery: 95,
+          speed: 4.0,
+          distanceCovered: v.total_distance_km ? `${v.total_distance_km} km` : '3.2 km',
+          lastPing: 'Just now',
+          coordinates: { lat: v.source_lat || 21.1959, lng: v.source_lng || 72.7933 },
+        }));
+        setActiveVihars(formatted);
+        setIsLiveFromDb(true);
+      } else {
+        // Fallback to active demo units for Surat city
+        setActiveVihars(DEMO_ACTIVE_VIHARS);
+        setIsLiveFromDb(false);
+      }
+    } catch (e) {
+      setActiveVihars(DEMO_ACTIVE_VIHARS);
+      setIsLiveFromDb(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLiveVihars();
+
+    const unsubscribe = adminService.subscribeToRequests(() => {
+      loadLiveVihars();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [loadLiveVihars]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadLiveVihars();
+    setRefreshing(false);
+  };
+
+  const filteredVihars = activeVihars.filter((v) => {
     if (filter === 'SAFE') return v.status === SAFETY_STATUS.SAFE;
     if (filter === 'WARNING') return v.status === SAFETY_STATUS.WARNING;
     if (filter === 'EMERGENCY') return v.status === SAFETY_STATUS.EMERGENCY;
@@ -85,16 +144,30 @@ export const AdminLiveTrackingScreen = () => {
     Linking.openURL(`tel:${cleanPhone}`);
   };
 
+  const safeCount = activeVihars.filter((v) => v.status === SAFETY_STATUS.SAFE).length;
+  const warningCount = activeVihars.filter((v) => v.status === SAFETY_STATUS.WARNING).length;
+  const emergencyCount = activeVihars.filter((v) => v.status === SAFETY_STATUS.EMERGENCY).length;
+
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
         title="Live Vihar Tracking"
-        subtitle="Super Admin Live Radar • Surat"
+        subtitle={isLiveFromDb ? "Super Admin Live Radar • Live Supabase" : "Super Admin Live Radar • Surat"}
         showLogo
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.saffron, colors.deepMaroon]}
+          />
+        }
+      >
         {/* Filter Pills */}
         <View style={styles.filterRow}>
           <TouchableOpacity
@@ -102,7 +175,7 @@ export const AdminLiveTrackingScreen = () => {
             style={[styles.filterChip, filter === 'ALL' && styles.filterChipActive]}
           >
             <Text style={[styles.filterChipText, filter === 'ALL' && styles.filterChipTextActive]}>
-              All Active ({ACTIVE_VIHARS.length})
+              All Active ({activeVihars.length})
             </Text>
           </TouchableOpacity>
 
@@ -111,7 +184,7 @@ export const AdminLiveTrackingScreen = () => {
             style={[styles.filterChip, filter === 'SAFE' && styles.filterChipActiveSafe]}
           >
             <Text style={[styles.filterChipText, filter === 'SAFE' && styles.filterChipTextActive]}>
-              ✓ Safe (3)
+              ✓ Safe ({safeCount})
             </Text>
           </TouchableOpacity>
 
@@ -120,7 +193,7 @@ export const AdminLiveTrackingScreen = () => {
             style={[styles.filterChip, filter === 'WARNING' && styles.filterChipActiveWarning]}
           >
             <Text style={[styles.filterChipText, filter === 'WARNING' && styles.filterChipTextActive]}>
-              ⚠️ Warning (0)
+              Warning ({warningCount})
             </Text>
           </TouchableOpacity>
 
@@ -129,115 +202,115 @@ export const AdminLiveTrackingScreen = () => {
             style={[styles.filterChip, filter === 'EMERGENCY' && styles.filterChipActiveEmergency]}
           >
             <Text style={[styles.filterChipText, filter === 'EMERGENCY' && styles.filterChipTextActive]}>
-              🚨 SOS (0)
+              SOS ({emergencyCount})
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Interactive Map Visual Mockup */}
+        {/* Live Radar Graphic Map Box */}
         <View style={[styles.mapContainer, shadows.card]}>
-          <View style={styles.mapGridBackground}>
-            <View style={styles.mapRoadHorizontal} />
-            <View style={styles.mapRoadVertical} />
-            <View style={styles.mapRiver} />
+          <View style={styles.radarHeader}>
+            <View style={styles.radarLiveDot} />
+            <Text style={styles.radarHeaderText}>
+              {isLiveFromDb ? 'LIVE SUPABASE GPS RADAR' : 'LIVE RADAR • SURAT CITY'}
+            </Text>
+          </View>
 
-            {/* Vihar 1 Pin */}
-            <View style={[styles.mapPinWrapper, { top: '35%', left: '30%' }]}>
-              <View style={styles.pinCircle}>
-                <Text style={styles.pinText}>🚶 1</Text>
-              </View>
-              <View style={styles.pinTag}>
-                <Text style={styles.pinTagText}>Adajan (Hetaben)</Text>
-              </View>
-            </View>
+          {/* Stylized Grid Canvas */}
+          <View style={styles.mapCanvas}>
+            <View style={styles.gridLineH} />
+            <View style={styles.gridLineV} />
+            <View style={styles.riverTapi} />
 
-            {/* Vihar 2 Pin */}
-            <View style={[styles.mapPinWrapper, { top: '65%', left: '60%' }]}>
-              <View style={styles.pinCircle}>
-                <Text style={styles.pinText}>🚶 2</Text>
-              </View>
-              <View style={styles.pinTag}>
-                <Text style={styles.pinTagText}>Vesu (Rekhaben)</Text>
-              </View>
-            </View>
+            {/* Render Active Markers */}
+            {filteredVihars.map((vihar, idx) => {
+              const markerStyles = [
+                { top: '35%', left: '35%' },
+                { top: '55%', left: '60%' },
+                { top: '45%', left: '70%' },
+              ];
+              const pos = markerStyles[idx % markerStyles.length];
 
-            {/* Vihar 3 Pin */}
-            <View style={[styles.mapPinWrapper, { top: '48%', left: '72%' }]}>
-              <View style={styles.pinCircle}>
-                <Text style={styles.pinText}>🚶 3</Text>
-              </View>
-              <View style={styles.pinTag}>
-                <Text style={styles.pinTagText}>Athwa Lines</Text>
-              </View>
-            </View>
-
-            {/* Map Overlay Badge */}
-            <View style={styles.mapLiveBadge}>
-              <View style={styles.livePulseDot} />
-              <Text style={styles.mapLiveText}>LIVE RADAR • SURAT CITY</Text>
-            </View>
+              return (
+                <View key={vihar.id} style={[styles.markerWrapper, pos]}>
+                  <View
+                    style={[
+                      styles.markerCircle,
+                      vihar.status === SAFETY_STATUS.EMERGENCY
+                        ? styles.markerEmergency
+                        : vihar.status === SAFETY_STATUS.WARNING
+                        ? styles.markerWarning
+                        : styles.markerSafe,
+                    ]}
+                  >
+                    <Text style={styles.markerText}>{idx + 1}</Text>
+                  </View>
+                  <View style={styles.markerLabelBox}>
+                    <Text style={styles.markerLabelText} numberOfLines={1}>
+                      {vihar.destination?.split(' ')[0] || 'Vihar'} ({vihar.leadSevak?.split(' ')[0]})
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
 
-        {/* Live Sevak Vihar Cards */}
-        <Text style={styles.sectionHeading}>Active Vihar Units ({filteredVihars.length})</Text>
+        {/* Active Units List */}
+        <Text style={styles.sectionHeading}>
+          Active Vihar Units ({filteredVihars.length})
+        </Text>
 
-        {filteredVihars.map((vihar, idx) => (
-          <View key={vihar.id} style={[styles.viharCard, shadows.card]}>
-            <View style={styles.cardTopRow}>
-              <View style={styles.indexCircle}>
-                <Text style={styles.indexText}>#{idx + 1}</Text>
+        {filteredVihars.map((item, index) => (
+          <View key={item.id} style={[styles.unitCard, shadows.card]}>
+            {/* Header */}
+            <View style={styles.unitCardHeader}>
+              <View style={styles.unitBadge}>
+                <Text style={styles.unitBadgeText}>#{index + 1}</Text>
               </View>
-
-              <View style={styles.viharInfo}>
-                <Text style={styles.sanghaName}>{vihar.sangha}</Text>
-                <Text style={styles.leadName}>👤 Lead Sevak: {vihar.leadSevak}</Text>
+              <View style={styles.unitTitleBox}>
+                <Text style={styles.sanghaName}>{item.sangha}</Text>
+                <Text style={styles.leadSevak}>Lead Sevak: {item.leadSevak}</Text>
               </View>
-
-              <StatusBadge status={vihar.status} />
+              <StatusBadge status={item.status} />
             </View>
 
+            {/* Location Box */}
             <View style={styles.locationBox}>
               <Text style={styles.locLabel}>CURRENT LOCATION:</Text>
-              <Text style={styles.locValue}>📍 {vihar.currentLocation}</Text>
-              <Text style={styles.destValue}>➔ Destination: {vihar.destination}</Text>
+              <Text style={styles.locText}>{item.currentLocation}</Text>
+              <Text style={styles.destText}>Destination: {item.destination}</Text>
             </View>
 
-            {/* Metrics Row */}
-            <View style={styles.metricsRow}>
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Speed</Text>
-                <Text style={styles.metricVal}>{vihar.speed} km/h</Text>
+            {/* Telemetry Row */}
+            <View style={styles.telemetryRow}>
+              <View style={styles.telemetryCol}>
+                <Text style={styles.telLabel}>SPEED</Text>
+                <Text style={styles.telValue}>{item.speed} km/h</Text>
               </View>
-
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Distance</Text>
-                <Text style={styles.metricVal}>{vihar.distanceCovered}</Text>
+              <View style={styles.telemetryCol}>
+                <Text style={styles.telLabel}>DISTANCE</Text>
+                <Text style={styles.telValue}>{item.distanceCovered}</Text>
               </View>
-
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Battery</Text>
-                <Text style={[styles.metricVal, { color: colors.statusSafe }]}>
-                  🔋 {vihar.battery}%
-                </Text>
+              <View style={styles.telemetryCol}>
+                <Text style={styles.telLabel}>BATTERY</Text>
+                <Text style={styles.telValue}>{item.battery}%</Text>
               </View>
-
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Last Ping</Text>
-                <Text style={styles.metricVal}>{vihar.lastPing}</Text>
+              <View style={styles.telemetryCol}>
+                <Text style={styles.telLabel}>LAST PING</Text>
+                <Text style={styles.telValue}>{item.lastPing}</Text>
               </View>
             </View>
 
-            {/* Action Buttons */}
-            <View style={styles.cardActions}>
-              <TouchableOpacity
-                onPress={() => handleCall(vihar.phone)}
-                style={styles.callBtn}
-              >
-                <PhoneIcon size={16} color={colors.warmIvory} />
-                <Text style={styles.callBtnText}>Call Sevak</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Action Row */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => handleCall(item.phone)}
+              style={styles.callButton}
+            >
+              <PhoneIcon size={18} color={colors.warmIvory} />
+              <Text style={styles.callButtonText}>Call Sevak</Text>
+            </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
@@ -258,14 +331,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
     marginBottom: spacing.md,
+    flexWrap: 'wrap',
   },
   filterChip: {
-    flex: 1,
-    paddingVertical: 7,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
     borderRadius: borderRadius.full,
-    alignItems: 'center',
-    borderWidth: 1.5,
+    backgroundColor: colors.softCream,
+    borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   filterChipActive: {
@@ -273,164 +346,167 @@ const styles = StyleSheet.create({
     borderColor: colors.deepMaroon,
   },
   filterChipActiveSafe: {
-    backgroundColor: colors.statusSafe,
+    backgroundColor: '#E8F5E9',
     borderColor: colors.statusSafe,
   },
   filterChipActiveWarning: {
-    backgroundColor: colors.statusWarning,
+    backgroundColor: '#FFF3E0',
     borderColor: colors.statusWarning,
   },
   filterChipActiveEmergency: {
-    backgroundColor: colors.statusEmergency,
+    backgroundColor: '#FFEBEE',
     borderColor: colors.statusEmergency,
   },
   filterChipText: {
-    fontSize: 11,
+    ...typography.caption,
     fontWeight: '700',
     color: colors.textSecondary,
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: colors.warmIvory,
   },
   mapContainer: {
-    height: 220,
+    backgroundColor: '#D6EAF8',
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
+    height: 220,
+    marginBottom: spacing.lg,
     borderWidth: 1.5,
     borderColor: colors.cardBorder,
-    marginBottom: spacing.lg,
-    backgroundColor: '#E5ECF4',
   },
-  mapGridBackground: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#DEE8F1',
-  },
-  mapRoadHorizontal: {
-    position: 'absolute',
-    top: '50%',
-    left: 0,
-    right: 0,
-    height: 14,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#CCD7E2',
-  },
-  mapRoadVertical: {
-    position: 'absolute',
-    left: '45%',
-    top: 0,
-    bottom: 0,
-    width: 14,
-    backgroundColor: '#FFFFFF',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: '#CCD7E2',
-  },
-  mapRiver: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 35,
-    backgroundColor: '#BCE0FD',
-  },
-  mapPinWrapper: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  pinCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.deepMaroon,
-    borderWidth: 2,
-    borderColor: colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinText: {
-    fontSize: 12,
-    color: colors.warmIvory,
-    fontWeight: '800',
-  },
-  pinTag: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-    marginTop: 2,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  pinTagText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.deepMaroon,
-  },
-  mapLiveBadge: {
+  radarHeader: {
     position: 'absolute',
     top: spacing.sm,
     left: spacing.sm,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(107, 23, 36, 0.9)',
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
     gap: 6,
   },
-  livePulseDot: {
+  radarLiveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#4CD964',
+    backgroundColor: '#4CAF50',
   },
-  mapLiveText: {
-    fontSize: 9,
+  radarHeaderText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: colors.warmIvory,
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
+  },
+  mapCanvas: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#E8F4F8',
+  },
+  gridLineH: {
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    right: 0,
+    height: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  gridLineV: {
+    position: 'absolute',
+    left: '45%',
+    top: 0,
+    bottom: 0,
+    width: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  riverTapi: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 24,
+    backgroundColor: '#AED6F1',
+  },
+  markerWrapper: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  markerCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.gold,
+  },
+  markerSafe: {
+    backgroundColor: colors.deepMaroon,
+  },
+  markerWarning: {
+    backgroundColor: colors.statusWarning,
+  },
+  markerEmergency: {
+    backgroundColor: colors.statusEmergency,
+  },
+  markerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  markerLabelBox: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+    marginTop: 2,
+    borderWidth: 0.5,
+    borderColor: colors.cardBorder,
+  },
+  markerLabelText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.deepMaroon,
   },
   sectionHeading: {
-    ...typography.bodyMedium,
+    ...typography.caption,
+    fontWeight: '800',
     color: colors.deepMaroon,
-    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     marginBottom: spacing.sm,
   },
-  viharCard: {
+  unitCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     borderWidth: 1.5,
     borderColor: colors.cardBorder,
     marginBottom: spacing.md,
   },
-  cardTopRow: {
+  unitCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
     marginBottom: spacing.sm,
   },
-  indexCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  unitBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.softCream,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  indexText: {
-    ...typography.caption,
+  unitBadgeText: {
+    fontSize: 11,
     fontWeight: '800',
     color: colors.deepMaroon,
   },
-  viharInfo: {
+  unitTitleBox: {
     flex: 1,
   },
   sanghaName: {
@@ -438,7 +514,7 @@ const styles = StyleSheet.create({
     color: colors.deepMaroon,
     fontWeight: '700',
   },
-  leadName: {
+  leadSevak: {
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 1,
@@ -446,62 +522,60 @@ const styles = StyleSheet.create({
   locationBox: {
     backgroundColor: colors.softCream,
     borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginVertical: spacing.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
   },
   locLabel: {
     fontSize: 9,
-    color: colors.textMuted,
     fontWeight: '800',
+    color: colors.textSecondary,
+    letterSpacing: 0.6,
   },
-  locValue: {
-    ...typography.bodySmall,
+  locText: {
+    ...typography.caption,
     color: colors.textPrimary,
     fontWeight: '700',
     marginTop: 2,
   },
-  destValue: {
+  destText: {
     ...typography.caption,
     color: colors.saffronDark,
     fontWeight: '600',
     marginTop: 2,
   },
-  metricsRow: {
+  telemetryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.cardBorder,
-    paddingVertical: spacing.sm,
-    marginVertical: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  metricItem: {
+  telemetryCol: {
     alignItems: 'center',
   },
-  metricLabel: {
+  telLabel: {
     fontSize: 9,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-  },
-  metricVal: {
-    ...typography.caption,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: 2,
+    color: colors.textSecondary,
   },
-  cardActions: {
-    marginTop: spacing.sm,
+  telValue: {
+    ...typography.caption,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+    marginTop: 1,
   },
-  callBtn: {
-    flexDirection: 'row',
+  callButton: {
     backgroundColor: colors.deepMaroon,
     borderRadius: borderRadius.md,
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
   },
-  callBtnText: {
+  callButtonText: {
     ...typography.caption,
     color: colors.warmIvory,
     fontWeight: '700',

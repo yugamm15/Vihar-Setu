@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,11 @@ import {
   StatusBar,
   Modal,
   Image,
-  Alert,
+  TextInput,
+  Switch,
+  ActivityIndicator,
+  RefreshControl,
+  Linking,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
@@ -26,20 +30,117 @@ import {
   LogsFileIcon,
   LogoutIcon,
   CheckCircleIcon,
+  HelpCircleIcon,
+  InfoIcon,
+  CloseIcon,
+  PhoneIcon,
+  NavigationIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
+import { useAlertStore } from '../../../shared/hooks/useAlertStore';
+import { adminService } from '../services/adminService';
 import { ROLES } from '../../../core/constants/roles';
-import { t } from '../../../core/localization/i18n';
 
 export const AdminMoreScreen = () => {
   const { user, profile, role, logout } = useAuthStore();
-  const [activeModal, setActiveModal] = useState(null); // 'REPORTS' | 'USERS' | 'LOGS' | 'LOGOUT' | 'SETTINGS' | 'HELP' | 'ABOUT'
+  const { showAlert } = useAlertStore();
+
+  const [activeModal, setActiveModal] = useState(null); // 'REPORTS' | 'USERS' | 'LOGS' | 'SETTINGS' | 'SECURITY' | 'HELP' | 'ABOUT'
+
+  // Reports state
+  const [reportsData, setReportsData] = useState({
+    viharsCompleted: 42,
+    totalKmCovered: '186.4',
+    activeSevaksCount: 18,
+    safetyRate: '100%',
+    avgResponseTime: '1.4 min',
+  });
+  const [reportsLoading, setReportsLoading] = useState(false);
+
+  // Users directory state
+  const [usersList, setUsersList] = useState([]);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  // Audit logs state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  // Settings state
+  const [deviationThreshold, setDeviationThreshold] = useState('50m');
+  const [gpsFrequency, setGpsFrequency] = useState('5s');
+  const [chimesEnabled, setChimesEnabled] = useState(true);
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
 
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
 
-  const handleLogout = async () => {
-    setActiveModal(null);
-    await logout();
+  const loadReports = useCallback(async () => {
+    setReportsLoading(true);
+    const data = await adminService.fetchSystemReports();
+    setReportsData(data);
+    setReportsLoading(false);
+  }, []);
+
+  const loadUsersDirectory = useCallback(async (query = '') => {
+    setUsersLoading(true);
+    const { data } = await adminService.fetchUsersDirectory(query);
+    setUsersList(data || []);
+    setUsersLoading(false);
+  }, []);
+
+  const loadAuditLogs = useCallback(async () => {
+    setLogsLoading(true);
+    const { data } = await adminService.fetchAuditLogs();
+    setAuditLogs(data || []);
+    setLogsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeModal === 'REPORTS') {
+      loadReports();
+    } else if (activeModal === 'USERS') {
+      loadUsersDirectory(usersSearch);
+    } else if (activeModal === 'LOGS') {
+      loadAuditLogs();
+    }
+  }, [activeModal, loadReports, loadUsersDirectory, loadAuditLogs, usersSearch]);
+
+  const handleOpenModal = (modalName) => {
+    setActiveModal(modalName);
+  };
+
+  const handleCallUser = (phone) => {
+    if (!phone) return;
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    Linking.openURL(`tel:${cleanPhone}`);
+  };
+
+  const handleLogout = () => {
+    showAlert({
+      type: 'CONFIRM',
+      title: 'Logout Super Admin',
+      message: 'Are you sure you want to end your Super Admin session on this device?',
+      confirmText: 'Yes, Logout',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        await logout();
+      },
+    });
+  };
+
+  const formatDate = (isoString) => {
+    if (!isoString) return 'Just now';
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      return isoString;
+    }
   };
 
   return (
@@ -75,7 +176,8 @@ export const AdminMoreScreen = () => {
         <Text style={styles.sectionHeader}>Operations & Management</Text>
         <View style={[styles.menuCard, shadows.card]}>
           <TouchableOpacity
-            onPress={() => setActiveModal('REPORTS')}
+            activeOpacity={0.7}
+            onPress={() => handleOpenModal('REPORTS')}
             style={styles.menuItem}
           >
             <View style={[styles.menuIconCircle, { backgroundColor: '#FFF8E7' }]}>
@@ -91,7 +193,8 @@ export const AdminMoreScreen = () => {
           <View style={styles.divider} />
 
           <TouchableOpacity
-            onPress={() => setActiveModal('USERS')}
+            activeOpacity={0.7}
+            onPress={() => handleOpenModal('USERS')}
             style={styles.menuItem}
           >
             <View style={[styles.menuIconCircle, { backgroundColor: '#E8F5E9' }]}>
@@ -99,7 +202,7 @@ export const AdminMoreScreen = () => {
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Users & Sevaks Directory</Text>
-              <Text style={styles.menuSub}>Manage verified Sevaks and admin accounts</Text>
+              <Text style={styles.menuSub}>Live directory of verified volunteers</Text>
             </View>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
@@ -107,7 +210,8 @@ export const AdminMoreScreen = () => {
           <View style={styles.divider} />
 
           <TouchableOpacity
-            onPress={() => setActiveModal('LOGS')}
+            activeOpacity={0.7}
+            onPress={() => handleOpenModal('LOGS')}
             style={styles.menuItem}
           >
             <View style={[styles.menuIconCircle, { backgroundColor: '#F3E5F5' }]}>
@@ -125,7 +229,8 @@ export const AdminMoreScreen = () => {
         <Text style={styles.sectionHeader}>Preferences & Security</Text>
         <View style={[styles.menuCard, shadows.card]}>
           <TouchableOpacity
-            onPress={() => setActiveModal('SETTINGS')}
+            activeOpacity={0.7}
+            onPress={() => handleOpenModal('SETTINGS')}
             style={styles.menuItem}
           >
             <View style={[styles.menuIconCircle, { backgroundColor: '#E3F2FD' }]}>
@@ -133,7 +238,7 @@ export const AdminMoreScreen = () => {
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Settings & Alert Thresholds</Text>
-              <Text style={styles.menuSub}>Route deviation limits, notification sounds</Text>
+              <Text style={styles.menuSub}>Route deviation limits, telemetry sounds</Text>
             </View>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
@@ -141,7 +246,8 @@ export const AdminMoreScreen = () => {
           <View style={styles.divider} />
 
           <TouchableOpacity
-            onPress={() => setActiveModal('SECURITY')}
+            activeOpacity={0.7}
+            onPress={() => handleOpenModal('SECURITY')}
             style={styles.menuItem}
           >
             <View style={[styles.menuIconCircle, { backgroundColor: '#FFF3E0' }]}>
@@ -159,11 +265,12 @@ export const AdminMoreScreen = () => {
         <Text style={styles.sectionHeader}>Support & Organization</Text>
         <View style={[styles.menuCard, shadows.card]}>
           <TouchableOpacity
-            onPress={() => setActiveModal('HELP')}
+            activeOpacity={0.7}
+            onPress={() => handleOpenModal('HELP')}
             style={styles.menuItem}
           >
             <View style={[styles.menuIconCircle, { backgroundColor: '#FBE9E7' }]}>
-              <Text style={{ fontSize: 16 }}>❓</Text>
+              <HelpCircleIcon size={20} color={colors.saffronDark} />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Help & Support Guidelines</Text>
@@ -175,11 +282,12 @@ export const AdminMoreScreen = () => {
           <View style={styles.divider} />
 
           <TouchableOpacity
-            onPress={() => setActiveModal('ABOUT')}
+            activeOpacity={0.7}
+            onPress={() => handleOpenModal('ABOUT')}
             style={styles.menuItem}
           >
             <View style={[styles.menuIconCircle, { backgroundColor: colors.softCream }]}>
-              <Text style={{ fontSize: 16 }}>ℹ️</Text>
+              <InfoIcon size={20} color={colors.deepMaroon} />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>About Vihar Setu</Text>
@@ -192,7 +300,7 @@ export const AdminMoreScreen = () => {
         {/* Logout Card */}
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => setActiveModal('LOGOUT')}
+          onPress={handleLogout}
           style={[styles.logoutCard, shadows.card]}
         >
           <LogoutIcon size={20} color={colors.statusEmergency} />
@@ -210,40 +318,62 @@ export const AdminMoreScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>📊 Reports & Analytics</Text>
-              <TouchableOpacity onPress={() => setActiveModal(null)}>
-                <Text style={styles.closeBtnText}>✕</Text>
+              <Text style={styles.modalTitle}>Reports & Analytics</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.closeBtn}>
+                <CloseIcon size={20} color={colors.deepMaroon} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.modalScroll}>
-              <View style={styles.analyticsGrid}>
-                <View style={styles.analyticBox}>
-                  <Text style={styles.analyticNum}>42</Text>
-                  <Text style={styles.analyticLabel}>Vihars Completed</Text>
-                </View>
-                <View style={styles.analyticBox}>
-                  <Text style={styles.analyticNum}>18</Text>
-                  <Text style={styles.analyticLabel}>Active Sevaks</Text>
-                </View>
-                <View style={styles.analyticBox}>
-                  <Text style={styles.analyticNum}>100%</Text>
-                  <Text style={styles.analyticLabel}>Safety Rate</Text>
-                </View>
-                <View style={styles.analyticBox}>
-                  <Text style={styles.analyticNum}>1.8 min</Text>
-                  <Text style={styles.analyticLabel}>Avg SOS Response</Text>
-                </View>
+            {reportsLoading ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color={colors.saffron} />
+                <Text style={styles.loadingText}>Compiling system analytics...</Text>
               </View>
+            ) : (
+              <ScrollView contentContainerStyle={styles.modalScroll}>
+                <View style={styles.analyticsGrid}>
+                  <View style={styles.analyticBox}>
+                    <Text style={styles.analyticNum}>{reportsData.viharsCompleted}</Text>
+                    <Text style={styles.analyticLabel}>Vihars Completed</Text>
+                  </View>
+                  <View style={styles.analyticBox}>
+                    <Text style={styles.analyticNum}>{reportsData.activeSevaksCount}</Text>
+                    <Text style={styles.analyticLabel}>Active Sevaks</Text>
+                  </View>
+                  <View style={styles.analyticBox}>
+                    <Text style={[styles.analyticNum, { color: colors.statusSafe }]}>{reportsData.safetyRate}</Text>
+                    <Text style={styles.analyticLabel}>Safety Rate</Text>
+                  </View>
+                  <View style={styles.analyticBox}>
+                    <Text style={[styles.analyticNum, { color: colors.saffronDark }]}>{reportsData.avgResponseTime}</Text>
+                    <Text style={styles.analyticLabel}>Avg SOS Response</Text>
+                  </View>
+                </View>
 
-              <Text style={styles.reportSubtitle}>Weekly Summary (Surat Region)</Text>
-              <View style={styles.reportSummaryCard}>
-                <Text style={styles.reportLine}>• Total Distance Monitored: <Text style={styles.bold}>186.4 km</Text></Text>
-                <Text style={styles.reportLine}>• Safe Vihars Concluded: <Text style={styles.bold}>14 routes</Text></Text>
-                <Text style={styles.reportLine}>• Deviations Corrected: <Text style={styles.bold}>2 instances</Text></Text>
-                <Text style={styles.reportLine}>• Zero Untoward Incidents Reported</Text>
-              </View>
-            </ScrollView>
+                <Text style={styles.reportSubtitle}>Surat Regional Summary</Text>
+                <View style={styles.reportSummaryCard}>
+                  <Text style={styles.reportLine}>
+                    • Total Distance Monitored: <Text style={styles.bold}>{reportsData.totalKmCovered} km</Text>
+                  </Text>
+                  <Text style={styles.reportLine}>
+                    • Completed Vihar Routes: <Text style={styles.bold}>{reportsData.viharsCompleted} journeys</Text>
+                  </Text>
+                  <Text style={styles.reportLine}>
+                    • Active Verified Volunteers: <Text style={styles.bold}>{reportsData.activeSevaksCount} sevaks</Text>
+                  </Text>
+                  <Text style={styles.reportLine}>
+                    • Safety Rating: <Text style={styles.bold}>{reportsData.safetyRate} zero untoward incidents</Text>
+                  </Text>
+                </View>
+
+                <PrimaryButton
+                  title="Close Analytics"
+                  onPress={() => setActiveModal(null)}
+                  variant="saffron"
+                  style={{ marginTop: spacing.lg }}
+                />
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
@@ -258,52 +388,64 @@ export const AdminMoreScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>👥 Verified Users Directory</Text>
-              <TouchableOpacity onPress={() => setActiveModal(null)}>
-                <Text style={styles.closeBtnText}>✕</Text>
+              <Text style={styles.modalTitle}>Verified Users Directory</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.closeBtn}>
+                <CloseIcon size={20} color={colors.deepMaroon} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.modalScroll}>
-              <View style={styles.userDirItem}>
-                <View style={styles.userDirAvatar}>
-                  <UserIcon size={20} color={colors.warmIvory} />
-                </View>
-                <View style={styles.userDirInfo}>
-                  <Text style={styles.userDirName}>Hetaben Mehta</Text>
-                  <Text style={styles.userDirSub}>📍 Adajan, Surat • B+ • Sevika</Text>
-                </View>
-                <View style={styles.activePill}>
-                  <Text style={styles.activePillText}>ACTIVE</Text>
-                </View>
-              </View>
+            <View style={styles.searchBar}>
+              <TextInput
+                placeholder="Search by name, phone, area..."
+                placeholderTextColor={colors.textMuted}
+                value={usersSearch}
+                onChangeText={(text) => {
+                  setUsersSearch(text);
+                  loadUsersDirectory(text);
+                }}
+                style={styles.searchInput}
+              />
+            </View>
 
-              <View style={styles.userDirItem}>
-                <View style={styles.userDirAvatar}>
-                  <UserIcon size={20} color={colors.warmIvory} />
-                </View>
-                <View style={styles.userDirInfo}>
-                  <Text style={styles.userDirName}>Rekhaben Shah</Text>
-                  <Text style={styles.userDirSub}>📍 Pal, Surat • B+ • Lead Sevika</Text>
-                </View>
-                <View style={styles.activePill}>
-                  <Text style={styles.activePillText}>ACTIVE</Text>
-                </View>
+            {usersLoading ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color={colors.saffron} />
+                <Text style={styles.loadingText}>Loading Sevaks directory...</Text>
               </View>
-
-              <View style={styles.userDirItem}>
-                <View style={styles.userDirAvatar}>
-                  <UserIcon size={20} color={colors.warmIvory} />
-                </View>
-                <View style={styles.userDirInfo}>
-                  <Text style={styles.userDirName}>Pravinbhai Shah</Text>
-                  <Text style={styles.userDirSub}>📍 Athwa Lines, Surat • O+ • Sevak</Text>
-                </View>
-                <View style={styles.activePill}>
-                  <Text style={styles.activePillText}>ACTIVE</Text>
-                </View>
-              </View>
-            </ScrollView>
+            ) : (
+              <ScrollView contentContainerStyle={styles.modalScroll}>
+                {usersList.length === 0 ? (
+                  <View style={styles.emptyBox}>
+                    <Text style={styles.emptyText}>No registered Sevaks match your search.</Text>
+                  </View>
+                ) : (
+                  usersList.map((item) => (
+                    <View key={item.id} style={styles.userDirItem}>
+                      <View style={styles.userDirAvatar}>
+                        <UserIcon size={20} color={colors.warmIvory} />
+                      </View>
+                      <View style={styles.userDirInfo}>
+                        <Text style={styles.userDirName}>{item.full_name || 'Sevak'}</Text>
+                        <Text style={styles.userDirSub}>
+                          {item.area ? `${item.area}, ` : ''}{item.city || 'Surat'} • {item.blood_group || 'B+'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleCallUser(item.phone)}
+                        style={styles.phoneActionBtn}
+                      >
+                        <PhoneIcon size={16} color={colors.deepMaroon} />
+                      </TouchableOpacity>
+                      <View style={[styles.activePill, item.status === 'PENDING' && styles.pendingPill]}>
+                        <Text style={[styles.activePillText, item.status === 'PENDING' && styles.pendingPillText]}>
+                          {item.status}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
@@ -318,31 +460,243 @@ export const AdminMoreScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>📜 Activity & Audit Logs</Text>
-              <TouchableOpacity onPress={() => setActiveModal(null)}>
-                <Text style={styles.closeBtnText}>✕</Text>
+              <Text style={styles.modalTitle}>Activity & Audit Logs</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.closeBtn}>
+                <CloseIcon size={20} color={colors.deepMaroon} />
+              </TouchableOpacity>
+            </View>
+
+            {logsLoading ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color={colors.saffron} />
+                <Text style={styles.loadingText}>Fetching database audit trail...</Text>
+              </View>
+            ) : (
+              <ScrollView contentContainerStyle={styles.modalScroll}>
+                {auditLogs.length === 0 ? (
+                  <View style={styles.emptyBox}>
+                    <Text style={styles.emptyText}>No recent activity logs recorded.</Text>
+                  </View>
+                ) : (
+                  auditLogs.map((log) => (
+                    <View key={log.id} style={styles.logItem}>
+                      <View style={styles.logHeaderRow}>
+                        <Text style={styles.logTime}>{formatDate(log.timestamp)}</Text>
+                        <Text style={[
+                          styles.logTypeTag,
+                          log.type === 'EMERGENCY' ? styles.logTypeEmergency : styles.logTypeSafe,
+                        ]}>
+                          {log.type}
+                        </Text>
+                      </View>
+                      <Text style={styles.logTitleText}>{log.title}</Text>
+                      <Text style={styles.logEvent}>{log.detail}</Text>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* SETTINGS & THRESHOLDS MODAL */}
+      <Modal
+        visible={activeModal === 'SETTINGS'}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, shadows.elevated]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Settings & Thresholds</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.closeBtn}>
+                <CloseIcon size={20} color={colors.deepMaroon} />
               </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
-              <View style={styles.logItem}>
-                <Text style={styles.logTime}>Today, 02:15 AM</Text>
-                <Text style={styles.logEvent}>
-                  ✅ Sevak Approved: Account activated for new volunteer.
+              <Text style={styles.settingSectionLabel}>Route Deviation Limit</Text>
+              <View style={styles.chipsRow}>
+                {['30m', '50m (Standard)', '100m'].map((th) => (
+                  <TouchableOpacity
+                    key={th}
+                    onPress={() => setDeviationThreshold(th)}
+                    style={[styles.thresholdChip, deviationThreshold === th && styles.thresholdChipActive]}
+                  >
+                    <Text style={[styles.thresholdChipText, deviationThreshold === th && styles.thresholdChipTextActive]}>
+                      {th}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.settingSectionLabel}>GPS Telemetry Frequency</Text>
+              <View style={styles.chipsRow}>
+                {['3s (High)', '5s (Normal)', '10s (Eco)'].map((fr) => (
+                  <TouchableOpacity
+                    key={fr}
+                    onPress={() => setGpsFrequency(fr)}
+                    style={[styles.thresholdChip, gpsFrequency === fr && styles.thresholdChipActive]}
+                  >
+                    <Text style={[styles.thresholdChipText, gpsFrequency === fr && styles.thresholdChipTextActive]}>
+                      {fr}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.switchLabel}>Emergency Audio Chimes</Text>
+                  <Text style={styles.switchSub}>Play loud sacred alarm during SOS triggers</Text>
+                </View>
+                <Switch
+                  value={chimesEnabled}
+                  onValueChange={setChimesEnabled}
+                  trackColor={{ false: '#DDD', true: colors.saffron }}
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.switchLabel}>Haptic Feedback Vibration</Text>
+                  <Text style={styles.switchSub}>Vibrate phone during alerts and check-ins</Text>
+                </View>
+                <Switch
+                  value={hapticsEnabled}
+                  onValueChange={setHapticsEnabled}
+                  trackColor={{ false: '#DDD', true: colors.saffron }}
+                />
+              </View>
+
+              <PrimaryButton
+                title="Save Settings"
+                onPress={() => {
+                  setActiveModal(null);
+                  showAlert({
+                    type: 'SUCCESS',
+                    title: 'Settings Saved',
+                    message: 'Admin telemetry thresholds and notification preferences updated.',
+                  });
+                }}
+                variant="saffron"
+                style={{ marginTop: spacing.lg }}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PRIVACY & SECURITY MODAL */}
+      <Modal
+        visible={activeModal === 'SECURITY'}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, shadows.elevated]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Privacy & Security Center</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.closeBtn}>
+                <CloseIcon size={20} color={colors.deepMaroon} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <View style={styles.securityBox}>
+                <ShieldIcon size={28} color={colors.statusSafe} />
+                <Text style={styles.securityTitle}>Database Row-Level Security (RLS)</Text>
+                <Text style={styles.securityDesc}>
+                  Active. Only verified administrators have read/write access to Sevak coordinates and emergency telemetry.
                 </Text>
               </View>
-              <View style={styles.logItem}>
-                <Text style={styles.logTime}>Yesterday, 06:45 PM</Text>
-                <Text style={styles.logEvent}>
-                  🚶 Vihar Concluded: Athwa Lines ➔ Nanpura completed safely.
+
+              <View style={styles.securityBox}>
+                <NavigationIcon size={28} color={colors.saffronDark} />
+                <Text style={styles.securityTitle}>Encrypted Telemetry Channels</Text>
+                <Text style={styles.securityDesc}>
+                  All GPS pings, routes, and emergency broadcast signals are encrypted via SSL/TLS during transit.
                 </Text>
               </View>
-              <View style={styles.logItem}>
-                <Text style={styles.logTime}>Yesterday, 07:15 AM</Text>
-                <Text style={styles.logEvent}>
-                  🚨 SOS Acknowledged & Resolved in 1.4 minutes.
+
+              <View style={styles.securityBox}>
+                <CheckCircleIcon size={28} color="#1976D2" />
+                <Text style={styles.securityTitle}>Session & Role Protection</Text>
+                <Text style={styles.securityDesc}>
+                  Supabase JWT authentication tokens are securely persisted in encrypted storage and refreshed automatically.
                 </Text>
               </View>
+
+              <PrimaryButton
+                title="Got It"
+                onPress={() => setActiveModal(null)}
+                variant="saffron"
+                style={{ marginTop: spacing.md }}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* HELP & GUIDELINES MODAL */}
+      <Modal
+        visible={activeModal === 'HELP'}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, shadows.elevated]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Help & Escalation Guidelines</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.closeBtn}>
+                <CloseIcon size={20} color={colors.deepMaroon} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <View style={styles.guidelineCard}>
+                <Text style={styles.guideNumber}>1</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.guideTitle}>Emergency SOS Escalation</Text>
+                  <Text style={styles.guideText}>
+                    Upon receiving an SOS alert, immediately tap "Call Sevak" to confirm nature of incident. If medical help is required, coordinate with the nearest Jain hospital.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.guidelineCard}>
+                <Text style={styles.guideNumber}>2</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.guideTitle}>Route Deviations Beyond 50m</Text>
+                  <Text style={styles.guideText}>
+                    Deviations alert administrators if the Sevak group moves 50m outside the planned corridor for more than 2 minutes.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.helplineBox}>
+                <Text style={styles.helplineTitle}>Surat Vihar Emergency Central Desk</Text>
+                <TouchableOpacity
+                  style={styles.callNowBtn}
+                  onPress={() => Linking.openURL('tel:+919876500000')}
+                >
+                  <PhoneIcon size={18} color="#FFFFFF" />
+                  <Text style={styles.callNowText}>Call Central Helpdesk (+91 98765 00000)</Text>
+                </TouchableOpacity>
+              </View>
+
+              <PrimaryButton
+                title="Close"
+                onPress={() => setActiveModal(null)}
+                variant="saffron"
+                style={{ marginTop: spacing.md }}
+              />
             </ScrollView>
           </View>
         </View>
@@ -362,49 +716,19 @@ export const AdminMoreScreen = () => {
               style={styles.aboutLogo}
               resizeMode="contain"
             />
-            <Text style={styles.aboutName}>Vihar Setu</Text>
-            <Text style={styles.aboutTagline}>by Jinaarya Vihar Seva</Text>
+            <Text style={styles.aboutName}>જિનાર્ય વિહાર સેતુ (Vihar Setu)</Text>
+            <Text style={styles.aboutTagline}>by Jinaarya Vihar Seva Group, Surat</Text>
             <Text style={styles.aboutDesc}>
               A dedicated digital safety & tracking ecosystem for Pujya Sadhviji Bhagwant Vihar Seva across Gujarat.
             </Text>
             <Text style={styles.aboutVersion}>Version 1.0.0 (Production Build)</Text>
+            <Text style={styles.aboutCredits}>Developers: Yugam Kothari & Jainish Patel</Text>
             <PrimaryButton
               title="Close"
               onPress={() => setActiveModal(null)}
               variant="saffron"
               style={{ width: '100%', marginTop: spacing.md }}
             />
-          </View>
-        </View>
-      </Modal>
-
-      {/* LOGOUT CONFIRMATION MODAL */}
-      <Modal
-        visible={activeModal === 'LOGOUT'}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActiveModal(null)}
-      >
-        <View style={styles.modalOverlayCenter}>
-          <View style={[styles.logoutDialog, shadows.elevated]}>
-            <Text style={styles.logoutTitle}>Logout of Super Admin Console?</Text>
-            <Text style={styles.logoutSub}>
-              Are you sure you want to exit your Super Admin session?
-            </Text>
-
-            <View style={styles.logoutBtnRow}>
-              <SecondaryButton
-                title="Cancel"
-                onPress={() => setActiveModal(null)}
-                style={styles.logoutBtnHalf}
-              />
-              <PrimaryButton
-                title="Yes, Logout"
-                onPress={handleLogout}
-                variant="primary"
-                style={styles.logoutBtnHalf}
-              />
-            </View>
           </View>
         </View>
       </Modal>
@@ -573,11 +897,17 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.deepMaroon,
   },
-  closeBtnText: {
-    fontSize: 22,
-    color: colors.textSecondary,
-    fontWeight: '700',
+  closeBtn: {
     padding: spacing.xs,
+  },
+  modalLoading: {
+    paddingVertical: spacing.xxl,
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   modalScroll: {
     paddingBottom: spacing.xxl,
@@ -627,12 +957,35 @@ const styles = StyleSheet.create({
   bold: {
     fontWeight: '700',
   },
+  searchBar: {
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.md,
+  },
+  searchInput: {
+    paddingVertical: 8,
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  emptyBox: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   userDirItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
+    gap: spacing.xs,
   },
   userDirAvatar: {
     width: 36,
@@ -641,7 +994,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.deepMaroon,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: spacing.xs,
   },
   userDirInfo: {
     flex: 1,
@@ -656,6 +1009,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
+  phoneActionBtn: {
+    padding: spacing.xs,
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
   activePill: {
     backgroundColor: '#D4EDDA',
     paddingHorizontal: spacing.sm,
@@ -667,20 +1027,185 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#155724',
   },
+  pendingPill: {
+    backgroundColor: '#FFF3CD',
+  },
+  pendingPillText: {
+    color: '#856404',
+  },
   logItem: {
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
+  },
+  logHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   logTime: {
     fontSize: 10,
     color: colors.textMuted,
     fontWeight: '600',
   },
-  logEvent: {
+  logTypeTag: {
+    fontSize: 9,
+    fontWeight: '800',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.xs,
+  },
+  logTypeEmergency: {
+    backgroundColor: '#FFEBEE',
+    color: colors.statusEmergency,
+  },
+  logTypeSafe: {
+    backgroundColor: '#E8F5E9',
+    color: colors.statusSafe,
+  },
+  logTitleText: {
     ...typography.bodySmall,
-    color: colors.textPrimary,
+    color: colors.deepMaroon,
+    fontWeight: '700',
     marginTop: 2,
+  },
+  logEvent: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  settingSectionLabel: {
+    ...typography.caption,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  thresholdChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.softCream,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+  },
+  thresholdChipActive: {
+    backgroundColor: colors.deepMaroon,
+    borderColor: colors.deepMaroon,
+  },
+  thresholdChipText: {
+    fontSize: 11,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  thresholdChipTextActive: {
+    color: colors.warmIvory,
+    fontWeight: '700',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  switchLabel: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+  },
+  switchSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  securityBox: {
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  securityTitle: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+    marginTop: spacing.xs,
+  },
+  securityDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  guidelineCard: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  guideNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.saffron,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 26,
+    fontSize: 12,
+  },
+  guideTitle: {
+    ...typography.caption,
+    color: colors.deepMaroon,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  guideText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  helplineBox: {
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginTop: spacing.sm,
+  },
+  helplineTitle: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  callNowBtn: {
+    backgroundColor: colors.deepMaroon,
+    borderRadius: borderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  callNowText: {
+    ...typography.caption,
+    color: colors.warmIvory,
+    fontWeight: '700',
   },
   aboutDialog: {
     backgroundColor: '#FFFFFF',
@@ -699,12 +1224,14 @@ const styles = StyleSheet.create({
   aboutName: {
     ...typography.h3,
     color: colors.deepMaroon,
+    textAlign: 'center',
   },
   aboutTagline: {
     ...typography.caption,
     color: colors.saffronDark,
     fontWeight: '700',
     marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   aboutDesc: {
     ...typography.bodySmall,
@@ -717,32 +1244,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
   },
-  logoutDialog: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 360,
-    alignItems: 'center',
-  },
-  logoutTitle: {
-    ...typography.h3,
+  aboutCredits: {
+    fontSize: 11,
     color: colors.deepMaroon,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  logoutSub: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  logoutBtnRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    width: '100%',
-  },
-  logoutBtnHalf: {
-    flex: 1,
+    fontWeight: '700',
+    marginTop: 4,
   },
 });

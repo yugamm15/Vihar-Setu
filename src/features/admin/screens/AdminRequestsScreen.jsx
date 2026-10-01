@@ -24,6 +24,10 @@ import {
   PhoneIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
+  SearchIcon,
+  CloseIcon,
+  ShieldIcon,
+  MapPinIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { adminService } from '../services/adminService';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
@@ -44,7 +48,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Custom Feedback Modal (Replaces dark system alert)
+  // Custom Feedback Modal
   const [feedbackModal, setFeedbackModal] = useState({
     visible: false,
     title: '',
@@ -104,8 +108,8 @@ export const AdminRequestsScreen = ({ navigation }) => {
       setDetailsModalVisible(false);
       setFeedbackModal({
         visible: true,
-        title: 'Request Approved!',
-        message: `${userToApprove.full_name || 'Sevak'} has been verified and granted full access to Vihar Setu.`,
+        title: 'Request Approved',
+        message: `${userToApprove.full_name || 'Sevak'} has been verified and granted access to Vihar Setu.`,
         type: 'SUCCESS',
       });
       loadRequests();
@@ -189,8 +193,6 @@ export const AdminRequestsScreen = ({ navigation }) => {
     return nameMatch || phoneMatch || areaMatch || emailMatch;
   });
 
-  const pendingCount = requests.filter((r) => r.status === 'PENDING').length;
-
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
@@ -206,7 +208,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
       <View style={styles.topControlContainer}>
         {/* Search Bar */}
         <View style={styles.searchBarWrapper}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <SearchIcon size={18} color={colors.textSecondary} />
           <TextInput
             placeholder="Search by name, phone, area..."
             placeholderTextColor={colors.textMuted}
@@ -216,7 +218,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Text style={styles.clearSearch}>✕</Text>
+              <CloseIcon size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -301,7 +303,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.saffron]}
+            colors={[colors.saffron, colors.deepMaroon]}
           />
         }
       >
@@ -312,7 +314,9 @@ export const AdminRequestsScreen = ({ navigation }) => {
           </View>
         ) : filteredRequests.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📭</Text>
+            <View style={styles.emptyIconCircle}>
+              <UserIcon size={36} color={colors.saffronDark} />
+            </View>
             <Text style={styles.emptyTitle}>No Requests Found</Text>
             <Text style={styles.emptySubtitle}>
               {searchQuery
@@ -324,7 +328,6 @@ export const AdminRequestsScreen = ({ navigation }) => {
           filteredRequests.map((item) => {
             const isPending = item.status === 'PENDING';
             const isApproved = item.status === 'ACTIVE';
-            const isRejected = item.status === 'REJECTED';
 
             return (
               <View
@@ -381,14 +384,14 @@ export const AdminRequestsScreen = ({ navigation }) => {
                       onPress={() => handleCallUser(item.phone)}
                       style={styles.clickablePhone}
                     >
-                      <Text style={styles.phoneValue}>📞 {item.phone || '—'}</Text>
+                      <Text style={styles.phoneValue}>{item.phone || '—'}</Text>
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Location (City & Area)</Text>
                     <Text style={styles.detailValue}>
-                      📍 {item.area ? `${item.area}, ` : ''}{item.city || 'Surat'}
+                      {item.area ? `${item.area}, ` : ''}{item.city || 'Surat'}
                     </Text>
                   </View>
 
@@ -402,14 +405,14 @@ export const AdminRequestsScreen = ({ navigation }) => {
                   <View style={styles.detailItemHalf}>
                     <Text style={styles.detailLabel}>Blood Group</Text>
                     <Text style={[styles.detailValue, styles.bloodText]}>
-                      🩸 {item.blood_group || '—'}
+                      {item.blood_group || '—'}
                     </Text>
                   </View>
 
                   <View style={styles.detailItemFull}>
                     <Text style={styles.detailLabel}>Submitted On</Text>
                     <Text style={styles.detailValueMuted}>
-                      🕒 {formatDate(item.created_at)}
+                      {formatDate(item.created_at)}
                     </Text>
                   </View>
                 </View>
@@ -420,7 +423,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
                     onPress={() => handleOpenDetails(item)}
                     style={styles.viewDetailsBtn}
                   >
-                    <Text style={styles.viewDetailsText}>👁️ View Details</Text>
+                    <Text style={styles.viewDetailsText}>View Details</Text>
                   </TouchableOpacity>
 
                   {isPending && (
@@ -429,14 +432,14 @@ export const AdminRequestsScreen = ({ navigation }) => {
                         onPress={() => handleOpenRejectModal(item)}
                         style={styles.rejectMiniBtn}
                       >
-                        <Text style={styles.rejectMiniText}>✕ Reject</Text>
+                        <Text style={styles.rejectMiniText}>Reject</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         onPress={() => handleApprove(item)}
                         style={styles.approveMiniBtn}
                       >
-                        <Text style={styles.approveMiniText}>✓ Approve</Text>
+                        <Text style={styles.approveMiniText}>Approve</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -467,7 +470,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
                 onPress={() => setDetailsModalVisible(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <CloseIcon size={20} color={colors.deepMaroon} />
               </TouchableOpacity>
             </View>
 
@@ -511,7 +514,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
                     style={styles.modalRowClickable}
                   >
                     <Text style={styles.modalRowLabel}>Mobile Number:</Text>
-                    <Text style={styles.modalRowPhone}>📞 {selectedRequest.phone}</Text>
+                    <Text style={styles.modalRowPhone}>{selectedRequest.phone}</Text>
                   </TouchableOpacity>
                   <View style={styles.divider} />
 
@@ -573,7 +576,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
                   >
                     <Text style={styles.modalRowLabel}>Emergency Phone:</Text>
                     <Text style={styles.modalRowPhone}>
-                      📞 {selectedRequest.emergency_contact_phone || '—'}
+                      {selectedRequest.emergency_contact_phone || '—'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -582,13 +585,13 @@ export const AdminRequestsScreen = ({ navigation }) => {
                 {selectedRequest.status === 'PENDING' ? (
                   <View style={styles.modalActionRow}>
                     <SecondaryButton
-                      title="✕ Reject"
+                      title="Reject"
                       onPress={() => handleOpenRejectModal(selectedRequest)}
                       style={styles.modalRejectBtn}
                       textStyle={styles.rejectBtnText}
                     />
                     <PrimaryButton
-                      title="✓ Approve"
+                      title="Approve"
                       onPress={() => handleApprove(selectedRequest)}
                       variant="saffron"
                       loading={isProcessing}
@@ -650,7 +653,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* CUSTOM SUCCESS / FEEDBACK MODAL (Replaces black native dialog) */}
+      {/* CUSTOM FEEDBACK MODAL */}
       <Modal
         visible={feedbackModal.visible}
         transparent
@@ -669,13 +672,13 @@ export const AdminRequestsScreen = ({ navigation }) => {
                   : styles.feedbackInfoBg,
               ]}
             >
-              <Text style={styles.feedbackIconText}>
-                {feedbackModal.type === 'SUCCESS'
-                  ? '🎉'
-                  : feedbackModal.type === 'ERROR'
-                  ? '❌'
-                  : 'ℹ️'}
-              </Text>
+              {feedbackModal.type === 'SUCCESS' ? (
+                <CheckCircleIcon size={32} color={colors.statusSafe} />
+              ) : feedbackModal.type === 'ERROR' ? (
+                <AlertTriangleIcon size={32} color={colors.statusEmergency} />
+              ) : (
+                <ShieldIcon size={32} color={colors.saffronDark} />
+              )}
             </View>
 
             <Text style={styles.feedbackTitle}>{feedbackModal.title}</Text>
@@ -714,21 +717,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: 44,
     marginBottom: spacing.sm,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: spacing.xs,
+    gap: spacing.xs,
   },
   searchInput: {
     flex: 1,
     ...typography.bodyMedium,
     color: colors.textPrimary,
     paddingVertical: 0,
-  },
-  clearSearch: {
-    fontSize: 16,
-    color: colors.textMuted,
-    padding: spacing.xs,
   },
   filterPillRow: {
     flexDirection: 'row',
@@ -775,9 +770,16 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.cardBorder,
   },
-  emptyIcon: {
-    fontSize: 48,
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.softCream,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   emptyTitle: {
     ...typography.h3,
@@ -988,11 +990,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
-  },
-  closeBtnText: {
-    fontSize: 22,
-    color: colors.textSecondary,
-    fontWeight: '700',
   },
   modalScroll: {
     paddingBottom: spacing.xxl,
@@ -1214,9 +1211,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF8E7',
     borderWidth: 2,
     borderColor: colors.saffron,
-  },
-  feedbackIconText: {
-    fontSize: 28,
   },
   feedbackTitle: {
     ...typography.h3,

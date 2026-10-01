@@ -153,4 +153,83 @@ export const viharService = {
       return { success: false, error: e };
     }
   },
+
+  /**
+   * Fetch History of Completed/Past Vihars for a Sevak
+   */
+  async getViharHistory(userId) {
+    try {
+      const { data, error } = await supabase
+        .from('vihars')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (e) {
+      console.warn('[ViharService] getViharHistory error:', e);
+      return { data: [], error: e };
+    }
+  },
+
+  /**
+   * Fetch All Active Vihars for Admin Live Tracking
+   */
+  async getAllActiveVihars() {
+    try {
+      const { data, error } = await supabase
+        .from('vihars')
+        .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area)')
+        .eq('status', 'ACTIVE')
+        .order('started_at', { ascending: false });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (e) {
+      console.warn('[ViharService] getAllActiveVihars error:', e);
+      return { data: [], error: e };
+    }
+  },
+
+  /**
+   * Fetch All Alerts & Emergencies for Admin Alerts Center
+   */
+  async getAllAlerts() {
+    try {
+      const { data, error } = await supabase
+        .from('emergencies')
+        .select('*, profiles:user_id(full_name, phone, city, area)')
+        .order('triggered_at', { ascending: false });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (e) {
+      console.warn('[ViharService] getAllAlerts error:', e);
+      return { data: [], error: e };
+    }
+  },
+
+  /**
+   * Resolve an Emergency in Supabase
+   */
+  async resolveEmergency(emergencyId, resolutionNotes = 'Resolved by Administrator') {
+    try {
+      const { data, error } = await supabase
+        .from('emergencies')
+        .update({
+          status: 'RESOLVED',
+          resolved_at: new Date().toISOString(),
+          resolution_notes: resolutionNotes,
+        })
+        .eq('id', emergencyId)
+        .select();
+
+      if (error) throw error;
+      return { data: data?.[0] || null, error: null };
+    } catch (e) {
+      console.warn('[ViharService] resolveEmergency error:', e);
+      return { data: null, error: e };
+    }
+  },
 };
