@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StatusBar,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
@@ -19,6 +20,9 @@ import {
   NavigationIcon,
   CheckCircleIcon,
   LogoutIcon,
+  WomenSafetyShieldIcon,
+  PhoneIcon,
+  SirenIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useViharStore } from '../../vihar/hooks/useViharStore';
@@ -222,6 +226,46 @@ export const SevakHomeScreen = ({ navigation }) => {
           </View>
           <StatusBadge status={SAFETY_STATUS.SAFE} />
         </View>
+
+        {/* 24x7 Women Safety & Emergency Dials Strip */}
+        <View style={[styles.homeSafetyCard, shadows.subtle]}>
+          <View style={styles.homeSafetyHeader}>
+            <WomenSafetyShieldIcon size={20} color={colors.statusEmergency} />
+            <Text style={styles.homeSafetyTitle}>24x7 Women Safety & Emergency Dials</Text>
+          </View>
+          <Text style={styles.homeSafetySubtitle}>
+            Direct 1-tap Gujarat emergency lines for early morning safety
+          </Text>
+          <View style={styles.homeHelplineRow}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => Linking.openURL('tel:112')}
+              style={[styles.homeHelplineBtn, styles.policeBg]}
+            >
+              <PhoneIcon size={14} color="#FFFFFF" />
+              <Text style={styles.homeHelplineBtnText}>112 Police</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => Linking.openURL('tel:181')}
+              style={[styles.homeHelplineBtn, styles.abhayamBg]}
+            >
+              <WomenSafetyShieldIcon size={14} color="#FFFFFF" />
+              <Text style={styles.homeHelplineBtnText}>181 Abhayam</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => Linking.openURL('tel:+919876500000')}
+              style={[styles.homeHelplineBtn, styles.deskBg]}
+            >
+              <PhoneIcon size={14} color="#FFFFFF" />
+              <Text style={styles.homeHelplineBtnText}>Vihar Desk</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
 
         {/* Today's Activity & Last Vihar Summary */}
         <View style={[styles.card, shadows.card]}>
@@ -434,6 +478,61 @@ const styles = StyleSheet.create({
     color: colors.deepMaroon,
     fontWeight: '700',
   },
+  /* 24x7 WOMEN SAFETY CARD STYLES */
+  homeSafetyCard: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: '#FFCDD2',
+    marginBottom: spacing.lg,
+  },
+  homeSafetyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  homeSafetyTitle: {
+    ...typography.caption,
+    fontWeight: '800',
+    color: colors.statusEmergency,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  homeSafetySubtitle: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  homeHelplineRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  homeHelplineBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 9,
+    borderRadius: borderRadius.sm,
+  },
+  policeBg: {
+    backgroundColor: '#B71C1C',
+  },
+  abhayamBg: {
+    backgroundColor: '#4A148C',
+  },
+  deskBg: {
+    backgroundColor: '#E65100',
+  },
+  homeHelplineBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.lg,

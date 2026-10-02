@@ -276,6 +276,28 @@ export const AdminAlertsScreen = () => {
                     <Text style={styles.callBtnText}>Call Sevak</Text>
                   </TouchableOpacity>
 
+                  {isEmergency ? (
+                    <>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => handleCall('112')}
+                        style={[styles.callBtn, { backgroundColor: '#B71C1C' }]}
+                      >
+                        <PhoneIcon size={14} color="#FFFFFF" />
+                        <Text style={styles.callBtnText}>112</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => handleCall('181')}
+                        style={[styles.callBtn, { backgroundColor: '#4A148C' }]}
+                      >
+                        <PhoneIcon size={14} color="#FFFFFF" />
+                        <Text style={styles.callBtnText}>181</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : null}
+
                   {isActive ? (
                     <TouchableOpacity
                       activeOpacity={0.85}

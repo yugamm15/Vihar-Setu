@@ -132,6 +132,64 @@ export const useViharStore = create((set, get) => ({
     return true;
   },
 
+  activeEmergency: null,
+
+  /**
+   * Trigger Real Emergency SOS (Multi-Tier Women Safety Engine)
+   */
+  triggerEmergency: async ({ userId, viharId, latitude, longitude, batteryPercentage, triggerType, notes }) => {
+    set({ isLoading: true });
+    const { data, error } = await viharService.triggerEmergencySOS({
+      userId,
+      viharId,
+      latitude,
+      longitude,
+      batteryPercentage,
+      triggerType,
+      notes,
+    });
+
+    if (error || !data) {
+      set({ isLoading: false, error: error?.message || 'Emergency broadcast failed' });
+      return null;
+    }
+
+    const currentActive = get().activeVihar;
+    if (currentActive && currentActive.id === viharId) {
+      set({
+        activeVihar: { ...currentActive, safety_status: 'EMERGENCY' },
+      });
+    }
+
+    set({
+      activeEmergency: data,
+      isLoading: false,
+      error: null,
+    });
+    return data;
+  },
+
+  /**
+   * Disarm / Cancel Emergency by Sevak (e.g. False Alarm or Safe Recovery)
+   */
+  disarmEmergency: async (emergencyId, viharId, reason) => {
+    set({ isLoading: true });
+    await viharService.cancelEmergencyBySevak(emergencyId, viharId, reason);
+
+    const currentActive = get().activeVihar;
+    if (currentActive && currentActive.id === viharId) {
+      set({
+        activeVihar: { ...currentActive, safety_status: 'SAFE' },
+      });
+    }
+
+    set({
+      activeEmergency: null,
+      isLoading: false,
+    });
+    return true;
+  },
+
   /**
    * Trigger Pre-Vihar 30-min Alarm state
    */

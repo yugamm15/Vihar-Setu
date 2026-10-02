@@ -184,7 +184,7 @@ export const AdminLiveTrackingScreen = () => {
             style={[styles.filterChip, filter === 'SAFE' && styles.filterChipActiveSafe]}
           >
             <Text style={[styles.filterChipText, filter === 'SAFE' && styles.filterChipTextActive]}>
-              ✓ Safe ({safeCount})
+              Safe ({safeCount})
             </Text>
           </TouchableOpacity>
 

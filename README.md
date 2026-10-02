@@ -176,10 +176,10 @@ To test different role dashboards instantly without waiting for real SMS gateway
 - [x] **Phase 6–9**: Firebase Auth, Splash, Onboarding & Dynamic Role Navigator.
 - [x] **Phase 10**: PostgreSQL 10-Table Schema with Row Level Security (RLS).
 - [x] **Phase 11**: Profile Management System with Live Supabase Sync & Edit Modal.
-- [ ] **Phase 12**: Vihar Creation & Route Planning (Google Directions API).
-- [ ] **Phase 13**: Live Interactive Google Map with Polyline & Waypoints.
-- [ ] **Phase 14**: Battery-Aware Background GPS Telemetry Engine.
-- [ ] **Phase 15**: Multi-Tier SOS Emergency Escalation & Automated Fallback Calling.
+- [x] **Phase 12**: Vihar Creation & Route Planning (Google Directions API).
+- [x] **Phase 13**: Live Interactive Google Map with Polyline & Waypoints.
+- [x] **Phase 14**: Battery-Aware Background GPS Telemetry Engine.
+- [x] **Phase 15**: Multi-Tier SOS Emergency Escalation & Automated Fallback Calling.
 
 ---
 

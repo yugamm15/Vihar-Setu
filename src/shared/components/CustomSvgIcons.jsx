@@ -215,3 +215,32 @@ export const SearchIcon = ({ size = 24, color = colors.deepMaroon }) => (
     <Path d="m21 21-4.35-4.35" />
   </Svg>
 );
+
+export const SirenIcon = ({ size = 24, color = colors.statusEmergency }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M7 18v-6a5 5 0 1 1 10 0v6" />
+    <Path d="M5 21h14" />
+    <Path d="M12 3v2" />
+    <Path d="m4.93 7.93 1.41 1.41" />
+    <Path d="m19.07 7.93-1.41 1.41" />
+  </Svg>
+);
+
+export const FlashlightIcon = ({ size = 24, color = colors.gold }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M18 6 6 18" />
+    <Path d="m2 2 20 20" />
+    <Path d="M9 18h6" />
+    <Path d="M10 22h4" />
+  </Svg>
+);
+
+export const WomenSafetyShieldIcon = ({ size = 24, color = colors.deepMaroon }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <Circle cx="12" cy="10" r="3" />
+    <Path d="M12 13v5" />
+    <Path d="M9.5 15.5h5" />
+  </Svg>
+);
+

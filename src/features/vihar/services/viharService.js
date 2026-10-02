@@ -211,7 +211,7 @@ export const viharService = {
   },
 
   /**
-   * Resolve an Emergency in Supabase
+   * Resolve an Emergency in Supabase (by Admin)
    */
   async resolveEmergency(emergencyId, resolutionNotes = 'Resolved by Administrator') {
     try {
@@ -230,6 +230,199 @@ export const viharService = {
     } catch (e) {
       console.warn('[ViharService] resolveEmergency error:', e);
       return { data: null, error: e };
+    }
+  },
+
+  /**
+   * Real Emergency SOS Trigger (Multi-Tier Women Safety Engine)
+   * Inserts into `emergencies`, updates `vihars.safety_status` to 'EMERGENCY',
+   * logs into `route_events` and `audit_logs`.
+   */
+  async triggerEmergencySOS({
+    userId,
+    viharId = null,
+    latitude = 21.1959,
+    longitude = 72.7933,
+    batteryPercentage = 85,
+    triggerType = 'MANUAL_SOS', // 'MANUAL_SOS' | 'AUTOMATIC_DEVIATION' | 'STATIONARY_TIMEOUT' | 'FALL_DETECTED'
+    notes = 'Immediate safety assistance requested during Vihar seva',
+  }) {
+    try {
+      if (!userId) throw new Error('User ID is required to trigger emergency SOS');
+
+      // 1. Insert into emergencies table
+      const emergencyPayload = {
+        user_id: userId,
+        vihar_id: viharId || null,
+        status: 'TRIGGERED',
+        trigger_type: triggerType,
+        latitude: latitude,
+        longitude: longitude,
+        battery_percentage: batteryPercentage,
+        resolution_notes: notes,
+        triggered_at: new Date().toISOString(),
+      };
+
+      const { data: emergencyData, error: emergencyError } = await supabase
+        .from('emergencies')
+        .insert(emergencyPayload)
+        .select()
+        .single();
+
+      if (emergencyError) throw emergencyError;
+
+      // 2. If active vihar exists, elevate its safety status to EMERGENCY
+      if (viharId) {
+        await supabase
+          .from('vihars')
+          .update({
+            safety_status: 'EMERGENCY',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', viharId);
+
+        // 3. Log into route_events
+        await supabase.from('route_events').insert({
+          vihar_id: viharId,
+          event_type: 'DEVIATION_LEVEL_2',
+          severity: 'CRITICAL',
+          message: `CRITICAL ALERT: ${triggerType} broadcast at (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
+          latitude: latitude,
+          longitude: longitude,
+          metadata: { battery: batteryPercentage, notes: notes },
+        });
+      }
+
+      // 4. Log into audit_logs for governance
+      try {
+        await supabase.from('audit_logs').insert({
+          actor_id: userId,
+          action: 'EMERGENCY_SOS_TRIGGERED',
+          entity: 'emergencies',
+          entity_id: emergencyData.id,
+          details: {
+            latitude,
+            longitude,
+            triggerType,
+            viharId,
+          },
+        });
+      } catch (auditErr) {
+        // Non-fatal
+      }
+
+      return { data: emergencyData, error: null };
+    } catch (e) {
+      console.warn('[ViharService] triggerEmergencySOS error:', e);
+      return { data: null, error: e };
+    }
+  },
+
+  /**
+   * Cancel or Disarm Emergency by Sevak (e.g. False Alarm or Safe Recovery)
+   */
+  async cancelEmergencyBySevak(emergencyId, viharId = null, reason = 'False Alarm - Sevika & Sadhviji Safe') {
+    try {
+      const { data, error } = await supabase
+        .from('emergencies')
+        .update({
+          status: 'FALSE_ALARM',
+          resolved_at: new Date().toISOString(),
+          resolution_notes: reason,
+        })
+        .eq('id', emergencyId)
+        .select();
+
+      if (error) throw error;
+
+      if (viharId) {
+        await supabase
+          .from('vihars')
+          .update({
+            safety_status: 'SAFE',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', viharId);
+
+        await supabase.from('route_events').insert({
+          vihar_id: viharId,
+          event_type: 'ROUTE_RECOVERED',
+          severity: 'INFO',
+          message: `Emergency SOS cancelled by Sevak: ${reason}`,
+        });
+      }
+
+      return { data: data?.[0] || null, error: null };
+    } catch (e) {
+      console.warn('[ViharService] cancelEmergencyBySevak error:', e);
+      return { data: null, error: e };
+    }
+  },
+
+  /**
+   * Record Real-Time GPS Telemetry Ping in `vihar_locations`
+   */
+  async recordLocationPing({
+    viharId,
+    userId,
+    latitude,
+    longitude,
+    speedKmh = 4.0,
+    heading = 0.0,
+    accuracyMeters = 5.0,
+    batteryPercentage = 90,
+    networkStatus = 'ONLINE',
+  }) {
+    try {
+      if (!viharId || !userId) return { error: 'Missing viharId or userId' };
+
+      const { data, error } = await supabase
+        .from('vihar_locations')
+        .insert({
+          vihar_id: viharId,
+          user_id: userId,
+          latitude,
+          longitude,
+          speed_kmh: speedKmh,
+          heading,
+          accuracy_meters: accuracyMeters,
+          battery_percentage: batteryPercentage,
+          network_status: networkStatus,
+          recorded_at: new Date().toISOString(),
+          synced_at: new Date().toISOString(),
+        });
+
+      return { data, error };
+    } catch (e) {
+      console.warn('[ViharService] recordLocationPing error:', e);
+      return { error: e };
+    }
+  },
+
+  /**
+   * Submit Safety Heartbeat Check-In (Dead-Man's Periodic Check)
+   */
+  async submitSafetyCheckResponse({
+    viharId,
+    userId,
+    userResponse = 'SAFE', // 'SAFE' | 'HELP'
+  }) {
+    try {
+      const { data, error } = await supabase
+        .from('safety_checks')
+        .insert({
+          vihar_id: viharId,
+          user_id: userId,
+          prompt_sent_at: new Date().toISOString(),
+          user_response: userResponse,
+          responded_at: new Date().toISOString(),
+          status: 'COMPLETED',
+        });
+
+      return { data, error };
+    } catch (e) {
+      console.warn('[ViharService] submitSafetyCheckResponse error:', e);
+      return { error: e };
     }
   },
 };
