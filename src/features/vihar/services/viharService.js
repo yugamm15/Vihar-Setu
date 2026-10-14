@@ -36,6 +36,44 @@ export const viharService = {
         .single();
 
       if (error) throw error;
+
+      // Automatically initialize Sub-Vihar #1 and initial participant (Phase 12 & 13)
+      try {
+        const subViharPayload = {
+          vihar_id: data.id,
+          sub_vihar_number: 1,
+          title: `Sub-Vihar 1: ${record.source_name || 'Origin'} → ${record.dest_name || 'Destination'}`,
+          source_name: record.source_name,
+          source_lat: record.source_lat,
+          source_lng: record.source_lng,
+          dest_name: record.dest_name,
+          dest_lat: record.dest_lat,
+          dest_lng: record.dest_lng,
+          total_distance_km: record.total_distance_km,
+          status: record.status === 'ACTIVE' ? 'ACTIVE' : 'PLANNED',
+          started_at: record.started_at,
+          notes: record.notes,
+        };
+
+        const { data: subData } = await supabase
+          .from('vihar_subsessions')
+          .insert(subViharPayload)
+          .select()
+          .single();
+
+        if (subData?.id) {
+          await supabase.from('vihar_participants').insert({
+            vihar_id: data.id,
+            sub_vihar_id: subData.id,
+            user_id: userId,
+            role: 'LEAD_SEVAK',
+            is_current_responsible: true,
+          });
+        }
+      } catch (subErr) {
+        console.warn('[ViharService] Sub-vihar auto-init notice:', subErr);
+      }
+
       return { data, error: null };
     } catch (e) {
       console.warn('[ViharService] createVihar error:', e);
@@ -180,11 +218,18 @@ export const viharService = {
     try {
       const { data, error } = await supabase
         .from('vihars')
-        .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area)')
+        .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area), vihar_subsessions(id, sub_vihar_number, title, status)')
         .eq('status', 'ACTIVE')
         .order('started_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        const { data: fallbackData } = await supabase
+          .from('vihars')
+          .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area)')
+          .eq('status', 'ACTIVE')
+          .order('started_at', { ascending: false });
+        return { data: fallbackData || [], error: null };
+      }
       return { data: data || [], error: null };
     } catch (e) {
       console.warn('[ViharService] getAllActiveVihars error:', e);
@@ -364,6 +409,7 @@ export const viharService = {
    */
   async recordLocationPing({
     viharId,
+    subViharId = null,
     userId,
     latitude,
     longitude,
@@ -376,21 +422,27 @@ export const viharService = {
     try {
       if (!viharId || !userId) return { error: 'Missing viharId or userId' };
 
+      const pingPayload = {
+        vihar_id: viharId,
+        user_id: userId,
+        latitude,
+        longitude,
+        speed_kmh: speedKmh,
+        heading,
+        accuracy_meters: accuracyMeters,
+        battery_percentage: batteryPercentage,
+        network_status: networkStatus,
+        recorded_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
+      };
+
+      if (subViharId) {
+        pingPayload.sub_vihar_id = subViharId;
+      }
+
       const { data, error } = await supabase
         .from('vihar_locations')
-        .insert({
-          vihar_id: viharId,
-          user_id: userId,
-          latitude,
-          longitude,
-          speed_kmh: speedKmh,
-          heading,
-          accuracy_meters: accuracyMeters,
-          battery_percentage: batteryPercentage,
-          network_status: networkStatus,
-          recorded_at: new Date().toISOString(),
-          synced_at: new Date().toISOString(),
-        });
+        .insert(pingPayload);
 
       return { data, error };
     } catch (e) {

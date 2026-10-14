@@ -45,6 +45,8 @@ import { adminService } from '../../admin/services/adminService';
 import { WomenSafetyEmergencyPanel } from '../../vihar/components/WomenSafetyEmergencyPanel';
 import { WomenSafetyHeartbeatModal } from '../../vihar/components/WomenSafetyHeartbeatModal';
 import { WomenSafetyDisarmModal } from '../../vihar/components/WomenSafetyDisarmModal';
+import { ViharHandoverModal } from '../../vihar/components/ViharHandoverModal';
+import { subViharService } from '../../vihar/services/subViharService';
 import { t } from '../../../core/localization/i18n';
 
 export const SevakViharScreen = ({ navigation }) => {
@@ -70,6 +72,8 @@ export const SevakViharScreen = ({ navigation }) => {
   const [endModalVisible, setEndModalVisible] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [disarmModalVisible, setDisarmModalVisible] = useState(false);
+  const [handoverModalVisible, setHandoverModalVisible] = useState(false);
+  const [currentSubVihar, setCurrentSubVihar] = useState(null);
 
   // Physical Deterrents State
   const [isSirenActive, setIsSirenActive] = useState(false);
@@ -128,24 +132,62 @@ export const SevakViharScreen = ({ navigation }) => {
     }
   }, [scheduledVihars]);
 
-  // Periodic GPS Telemetry Breadcrumbs (Every 30s during active Vihar)
+  // Load Active Sub-Vihar on activeVihar change (Phase 13)
+  useEffect(() => {
+    if (activeVihar?.id) {
+      subViharService.getActiveSubVihar(activeVihar.id).then(({ data }) => {
+        setCurrentSubVihar(data);
+      });
+    } else {
+      setCurrentSubVihar(null);
+    }
+  }, [activeVihar?.id]);
+
+  // Periodic GPS Telemetry Breadcrumbs (associated with active Sub-Vihar)
   useEffect(() => {
     if (!activeVihar?.id || !user?.id) return;
 
-    const pingTimer = setInterval(() => {
+    const executePing = (lat, lng, speed = 4.2) => {
       viharService.recordLocationPing({
         viharId: activeVihar.id,
+        subViharId: currentSubVihar?.id || null,
         userId: user.id,
-        latitude: activeVihar.source_lat || 21.1959,
-        longitude: activeVihar.source_lng || 72.7933,
-        speedKmh: 4.2,
+        latitude: lat,
+        longitude: lng,
+        speedKmh: speed,
         batteryPercentage: 88,
         networkStatus: 'ONLINE',
       });
+    };
+
+    const pingTimer = setInterval(() => {
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            executePing(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              (pos.coords.speed || 1.1) * 3.6
+            );
+          },
+          () => {
+            executePing(
+              activeVihar.source_lat || 21.1959,
+              activeVihar.source_lng || 72.7933
+            );
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
+        );
+      } else {
+        executePing(
+          activeVihar.source_lat || 21.1959,
+          activeVihar.source_lng || 72.7933
+        );
+      }
     }, 30000);
 
     return () => clearInterval(pingTimer);
-  }, [activeVihar?.id, user?.id]);
+  }, [activeVihar?.id, user?.id, currentSubVihar?.id]);
 
   // Periodic Safety Heartbeat Countdown (120s Auto-Escalation Engine)
   useEffect(() => {
@@ -467,6 +509,37 @@ export const SevakViharScreen = ({ navigation }) => {
                 style={styles.sosButton}
               />
             ) : null}
+
+            {/* Phase 13: Sub-Vihar & Handover System */}
+            <View style={[styles.subViharCard, shadows.subtle]}>
+              <View style={styles.subViharHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.subViharBadge}>
+                    SUB-VIHAR #{currentSubVihar?.sub_vihar_number || 1} • ACTIVE DUTY
+                  </Text>
+                  <Text style={styles.subViharTitle} numberOfLines={1}>
+                    {currentSubVihar?.title || 'Segment 1: Leading Accompaniment'}
+                  </Text>
+                </View>
+                <View style={styles.dutyPill}>
+                  <Text style={styles.dutyPillText}>DUTY ACTIVE</Text>
+                </View>
+              </View>
+
+              <Text style={styles.subViharDesc}>
+                Transfer accompanying duty to the next volunteer without ending the parent Vihar journey.
+              </Text>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setHandoverModalVisible(true)}
+                style={styles.handoverActionBtn}
+              >
+                <Text style={styles.handoverActionBtnText}>
+                  Handover Vihar (Transfer Duty)
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             {/* 6. End Vihar Button */}
             <TouchableOpacity
@@ -1018,6 +1091,25 @@ export const SevakViharScreen = ({ navigation }) => {
         visible={disarmModalVisible}
         onConfirmDisarm={handleConfirmDisarm}
         onCancel={() => setDisarmModalVisible(false)}
+      />
+
+      {/* Phase 13: Vihar Handover Modal */}
+      <ViharHandoverModal
+        visible={handoverModalVisible}
+        onClose={() => setHandoverModalVisible(false)}
+        vihar={activeVihar}
+        currentSubVihar={currentSubVihar}
+        currentUserId={user?.id}
+        onHandoverComplete={(newSubVihar) => {
+          setCurrentSubVihar(newSubVihar);
+          showAlert({
+            type: 'SUCCESS',
+            title: 'Handover Completed',
+            message: `Vihar duty successfully handed over. Sub-Vihar #${newSubVihar?.sub_vihar_number || 2} is now active.`,
+            confirmText: 'Jai Jinendra',
+            confirmVariant: 'saffron',
+          });
+        }}
       />
     </View>
   );
@@ -1796,6 +1888,67 @@ const styles = StyleSheet.create({
   checkMark: {
     fontSize: 12,
     color: colors.statusSafe,
+    fontWeight: '700',
+  },
+
+  /* SUB-VIHAR & HANDOVER STYLES (PHASE 13) */
+  subViharCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  subViharHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.xs,
+  },
+  subViharBadge: {
+    ...typography.caption,
+    color: colors.gold,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  subViharTitle: {
+    ...typography.h4,
+    color: colors.deepMaroon,
+    marginTop: 2,
+  },
+  dutyPill: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: colors.statusSafe,
+    borderRadius: borderRadius.full,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+  },
+  dutyPillText: {
+    ...typography.caption,
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.statusSafe,
+  },
+  subViharDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  handoverActionBtn: {
+    backgroundColor: '#FFF8EC',
+    borderWidth: 1.5,
+    borderColor: colors.saffron,
+    borderRadius: borderRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  handoverActionBtnText: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
     fontWeight: '700',
   },
 });

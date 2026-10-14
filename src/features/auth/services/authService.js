@@ -320,6 +320,35 @@ export const authService = {
   },
 
   /**
+   * Hard Delete Sevak Account (Strictly for Super Admin use)
+   */
+  async hardDeleteSevakAccount(userId) {
+    try {
+      // 1. Try calling stored procedure if available
+      const { data, error } = await supabase.rpc('hard_delete_sevak', {
+        target_user_id: userId,
+      });
+
+      if (!error) return { success: true, message: data?.message };
+
+      // 2. Direct cascading delete fallback
+      await supabase.from('vihar_participants').delete().eq('user_id', userId);
+      await supabase.from('vihar_holds').delete().eq('user_id', userId);
+      await supabase.from('vihar_locations').delete().eq('user_id', userId);
+      await supabase.from('emergencies').delete().eq('user_id', userId);
+      await supabase.from('safety_checks').delete().eq('user_id', userId);
+      await supabase.from('user_roles').delete().eq('user_id', userId);
+      const { error: profileErr } = await supabase.from('profiles').delete().eq('id', userId);
+      if (profileErr) throw profileErr;
+
+      return { success: true, message: 'Sevak account permanently deleted.' };
+    } catch (e) {
+      console.warn('[AuthService] Error in hardDeleteSevakAccount:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  /**
    * Sign Out
    */
   async signOut() {

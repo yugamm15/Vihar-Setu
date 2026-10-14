@@ -64,6 +64,9 @@ export const SevakProfileScreen = () => {
     profile?.emergency_contact_phone || '9876543211'
   );
   const [bloodGroup, setBloodGroup] = useState(profile?.blood_group || 'B+');
+  const [interestedInAdmin, setInterestedInAdmin] = useState(
+    Boolean(profile?.interested_in_administrator)
+  );
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Avatar Selection State
@@ -120,6 +123,7 @@ export const SevakProfileScreen = () => {
     setEmergencyName(profile?.emergency_contact_name || 'Vihar Coordination Office');
     setEmergencyPhone(profile?.emergency_contact_phone || '9876543211');
     setBloodGroup(profile?.blood_group || 'B+');
+    setInterestedInAdmin(Boolean(profile?.interested_in_administrator));
     setSaveSuccessMsg('');
     setIsEditModalOpen(true);
   };
@@ -168,6 +172,7 @@ export const SevakProfileScreen = () => {
       emergency_contact_phone: emergencyPhone.trim(),
       blood_group: bloodGroup.trim(),
       preferred_language: language,
+      interested_in_administrator: interestedInAdmin,
     });
     setIsSaving(false);
 
@@ -345,6 +350,24 @@ export const SevakProfileScreen = () => {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Active Status</Text>
             <StatusBadge status={SAFETY_STATUS.SAFE} />
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Admin Candidate</Text>
+            <Text
+              style={[
+                styles.infoValue,
+                {
+                  color: profile?.interested_in_administrator
+                    ? colors.saffronDark
+                    : colors.textSecondary,
+                  fontWeight: '700',
+                },
+              ]}
+            >
+              {profile?.interested_in_administrator ? 'Yes (Candidate)' : 'Sevak Only'}
+            </Text>
           </View>
         </View>
 
@@ -597,6 +620,35 @@ export const SevakProfileScreen = () => {
                   )
                 }
               />
+
+              {/* Administrator Interest Option (Phase 10 & 11) */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setInterestedInAdmin(!interestedInAdmin)}
+                style={[
+                  styles.adminInterestBox,
+                  interestedInAdmin && styles.adminInterestBoxActive,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.checkboxBox,
+                    interestedInAdmin && styles.checkboxBoxChecked,
+                  ]}
+                >
+                  {interestedInAdmin ? (
+                    <Text style={styles.checkboxTickText}>✓</Text>
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.adminInterestTitle}>
+                    Interested in becoming an Administrator
+                  </Text>
+                  <Text style={styles.adminInterestDesc}>
+                    Volunteer to assist with local coordination, Sevak approvals, and regional monitoring.
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
               <View style={styles.modalBtnRow}>
                 <SecondaryButton
@@ -1262,5 +1314,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.statusSafe,
     fontWeight: '700',
+  },
+  adminInterestBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FAF5ED',
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  adminInterestBoxActive: {
+    backgroundColor: '#FFF8EC',
+    borderColor: colors.saffron,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.textSecondary,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: colors.saffron,
+    borderColor: colors.saffron,
+  },
+  checkboxTickText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+    lineHeight: 16,
+  },
+  adminInterestTitle: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+  },
+  adminInterestDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 3,
+    lineHeight: 16,
   },
 });

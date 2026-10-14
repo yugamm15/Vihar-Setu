@@ -29,7 +29,7 @@ const LANGUAGES = [
   { code: 'en', label: 'English' },
 ];
 
-export const ProfileSetupScreen = () => {
+export const ProfileSetupScreen = ({ onComplete, isEditing = false }) => {
   const scrollViewRef = useRef(null);
   const { user, profile, updateProfileDetails, changeLanguage, language, isLoading } =
     useAuthStore();
@@ -50,6 +50,9 @@ export const ProfileSetupScreen = () => {
     profile?.emergency_contact_phone || ''
   );
   const [bloodGroup, setBloodGroup] = useState(profile?.blood_group || 'B+');
+  const [interestedInAdmin, setInterestedInAdmin] = useState(
+    Boolean(profile?.interested_in_administrator)
+  );
   const [errorMessage, setErrorMessage] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -133,6 +136,7 @@ export const ProfileSetupScreen = () => {
       emergency_contact_phone: emergencyPhone.trim(),
       blood_group: bloodGroup.trim(),
       preferred_language: language,
+      interested_in_administrator: interestedInAdmin,
       status: 'PENDING',
     });
 
@@ -142,6 +146,8 @@ export const ProfileSetupScreen = () => {
         storeError ||
           'This mobile number is already registered with another account.'
       );
+    } else if (onComplete) {
+      onComplete();
     }
   };
 
@@ -152,7 +158,18 @@ export const ProfileSetupScreen = () => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
-      <AppHeader title={t('profile_setup.title')} />
+      <AppHeader
+        title={isEditing ? 'Edit Registration' : t('profile_setup.title')}
+        rightElement={
+          isEditing && onComplete ? (
+            <TouchableOpacity onPress={onComplete} style={{ padding: 4 }}>
+              <Text style={{ color: colors.warmIvory, fontWeight: '700', fontSize: 13 }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
+      />
 
       <ScrollView
         ref={scrollViewRef}
@@ -339,6 +356,35 @@ export const ProfileSetupScreen = () => {
             maxLength={10}
             onFocus={handleScrollToBottom}
           />
+
+          {/* Administrator Interest Option (Phase 10 & 11) */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setInterestedInAdmin(!interestedInAdmin)}
+            style={[
+              styles.adminInterestCard,
+              interestedInAdmin && styles.adminInterestCardActive,
+            ]}
+          >
+            <View
+              style={[
+                styles.checkboxBox,
+                interestedInAdmin && styles.checkboxBoxChecked,
+              ]}
+            >
+              {interestedInAdmin ? (
+                <Text style={styles.checkboxTickText}>✓</Text>
+              ) : null}
+            </View>
+            <View style={styles.adminInterestTextContainer}>
+              <Text style={styles.adminInterestTitle}>
+                Are you interested in becoming an Administrator?
+              </Text>
+              <Text style={styles.adminInterestDesc}>
+                Help coordinate local Vihars, verify volunteer applications, and monitor regional safety in Surat.
+              </Text>
+            </View>
+          </TouchableOpacity>
 
           {errorMessage ? (
             <Text style={styles.errorText}>{errorMessage}</Text>
@@ -747,5 +793,56 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.deepMaroon,
     fontWeight: '700',
+  },
+  adminInterestCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FAF5ED',
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  adminInterestCardActive: {
+    backgroundColor: '#FFF8EC',
+    borderColor: colors.saffron,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.textSecondary,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: colors.saffron,
+    borderColor: colors.saffron,
+  },
+  checkboxTickText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+    lineHeight: 16,
+  },
+  adminInterestTextContainer: {
+    flex: 1,
+  },
+  adminInterestTitle: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
+    fontWeight: '700',
+  },
+  adminInterestDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 3,
+    lineHeight: 16,
   },
 });

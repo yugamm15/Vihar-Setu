@@ -22,6 +22,7 @@ import {
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { authService } from '../../auth/services/authService';
+import { ProfileSetupScreen } from '../../auth/screens/ProfileSetupScreen';
 import { t } from '../../../core/localization/i18n';
 
 export const SevakPendingApprovalScreen = () => {
@@ -34,6 +35,7 @@ export const SevakPendingApprovalScreen = () => {
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [rejectionModalVisible, setRejectionModalVisible] = useState(false);
   const [approvalModalVisible, setApprovalModalVisible] = useState(false);
+  const [isEditingRegistration, setIsEditingRegistration] = useState(false);
 
   // Pulse animation for pending status badge
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -103,6 +105,15 @@ export const SevakPendingApprovalScreen = () => {
     setCancelModalVisible(false);
     await withdrawRequest();
   };
+
+  if (isEditingRegistration) {
+    return (
+      <ProfileSetupScreen
+        isEditing={true}
+        onComplete={() => setIsEditingRegistration(false)}
+      />
+    );
+  }
 
   const handleConfirmRejectionExit = async () => {
     setRejectionModalVisible(false);
@@ -226,6 +237,14 @@ export const SevakPendingApprovalScreen = () => {
               </View>
             </>
           ) : null}
+
+          <View style={styles.divider} />
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Interested in Admin:</Text>
+            <Text style={[styles.detailValue, { color: profile?.interested_in_administrator ? colors.saffronDark : colors.textSecondary, fontWeight: '700' }]}>
+              {profile?.interested_in_administrator ? 'Yes (Candidate)' : 'No'}
+            </Text>
+          </View>
         </View>
 
         {/* Actions */}
@@ -240,6 +259,14 @@ export const SevakPendingApprovalScreen = () => {
             loading={isChecking}
             variant="saffron"
             style={styles.refreshBtn}
+          />
+
+          {/* Edit Submitted Details (Phase 10 & 11) */}
+          <SecondaryButton
+            title="Edit Registration Details"
+            onPress={() => setIsEditingRegistration(true)}
+            style={{ marginTop: spacing.sm, borderColor: colors.deepMaroon }}
+            textStyle={{ color: colors.deepMaroon, fontWeight: '700' }}
           />
 
           {/* Cancel Request & Delete from Database */}

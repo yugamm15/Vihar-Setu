@@ -92,6 +92,9 @@ export const AdminLiveTrackingScreen = () => {
           currentLocation: v.source_name || 'Active Vihar Corridor, Surat',
           destination: v.dest_name || 'Designated Upashray',
           status: v.safety_status || SAFETY_STATUS.SAFE,
+          subViharLabel: v.vihar_subsessions?.[0]
+            ? `Sub-Vihar #${v.vihar_subsessions[0].sub_vihar_number}`
+            : 'Sub-Vihar #1',
           battery: 95,
           speed: 4.0,
           distanceCovered: v.total_distance_km ? `${v.total_distance_km} km` : '3.2 km',
@@ -269,8 +272,12 @@ export const AdminLiveTrackingScreen = () => {
                 <Text style={styles.unitBadgeText}>#{index + 1}</Text>
               </View>
               <View style={styles.unitTitleBox}>
-                <Text style={styles.sanghaName}>{item.sangha}</Text>
-                <Text style={styles.leadSevak}>Lead Sevak: {item.leadSevak}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.sanghaName}>{item.sangha}</Text>
+                </View>
+                <Text style={styles.leadSevak}>
+                  Lead Sevak: {item.leadSevak} {item.subViharLabel ? `• ${item.subViharLabel}` : ''}
+                </Text>
               </View>
               <StatusBadge status={item.status} />
             </View>
