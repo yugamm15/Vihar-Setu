@@ -30,11 +30,18 @@ import {
   MapPinIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { adminService } from '../services/adminService';
+import { authService } from '../../auth/services/authService';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
+import { useAlertStore } from '../../../shared/hooks/useAlertStore';
+import { ROLES } from '../../../core/constants/roles';
 import { t } from '../../../core/localization/i18n';
 
 export const AdminRequestsScreen = ({ navigation }) => {
-  const { profile: adminProfile } = useAuthStore();
+  const { profile: adminProfile, role } = useAuthStore();
+  const { showAlert } = useAlertStore();
+  const isSuperAdmin =
+    role === ROLES.SUPER_ADMIN ||
+    adminProfile?.email === 'bhemanibhemani@gmail.com';
   const [requests, setRequests] = useState([]);
   const [activeFilter, setActiveFilter] = useState('PENDING'); // PENDING | ACTIVE | REJECTED | ALL
   const [searchQuery, setSearchQuery] = useState('');
@@ -158,6 +165,45 @@ export const AdminRequestsScreen = ({ navigation }) => {
         type: 'ERROR',
       });
     }
+  };
+
+  /**
+   * Super Admin Privileged Hard Delete (Section 9 & Phase 11)
+   */
+  const handleHardDelete = (item) => {
+    if (!item?.id) return;
+
+    showAlert({
+      type: 'CONFIRM',
+      title: 'PERMANENT HARD DELETE',
+      message: `WARNING: This action is irreversible. All profile data, emergency records, holds, and activity for ${item.full_name || 'this Sevak'} will be permanently erased from the database.\n\nAre you sure you want to permanently delete this account?`,
+      confirmText: 'Yes, Delete Permanently',
+      cancelText: 'Cancel',
+      confirmVariant: 'emergency',
+      onConfirm: async () => {
+        setIsProcessing(true);
+        const { success, error } = await authService.hardDeleteSevakAccount(item.id);
+        setIsProcessing(false);
+        setDetailsModalVisible(false);
+
+        if (success) {
+          showAlert({
+            type: 'SUCCESS',
+            title: 'Account Hard-Deleted',
+            message: `${item.full_name || 'Sevak'} account has been permanently erased from the database.`,
+            confirmText: 'OK',
+          });
+          loadRequests();
+        } else {
+          showAlert({
+            type: 'ERROR',
+            title: 'Deletion Failed',
+            message: error?.message || 'Could not permanently delete Sevak account. Please verify Super Admin privileges.',
+            confirmText: 'OK',
+          });
+        }
+      },
+    });
   };
 
   const handleCallUser = (phone) => {
@@ -415,6 +461,17 @@ export const AdminRequestsScreen = ({ navigation }) => {
                       {formatDate(item.created_at)}
                     </Text>
                   </View>
+
+                  {item.interested_in_administrator ? (
+                    <View style={styles.detailItemFull}>
+                      <View style={styles.adminCandidateChip}>
+                        <ShieldIcon size={14} color={colors.saffronDark} />
+                        <Text style={styles.adminCandidateText}>
+                          Interested in Administrator Role
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
 
                 {/* Card Action Buttons */}
@@ -425,6 +482,15 @@ export const AdminRequestsScreen = ({ navigation }) => {
                   >
                     <Text style={styles.viewDetailsText}>View Details</Text>
                   </TouchableOpacity>
+
+                  {isSuperAdmin && (item.status === 'REJECTED' || item.status === 'DISABLED') && (
+                    <TouchableOpacity
+                      onPress={() => handleHardDelete(item)}
+                      style={styles.cardHardDeleteBtn}
+                    >
+                      <Text style={styles.cardHardDeleteText}>Hard Delete</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {isPending && (
                     <View style={styles.pendingActionBtns}>
@@ -554,6 +620,27 @@ export const AdminRequestsScreen = ({ navigation }) => {
                       {selectedRequest.preferred_language?.toUpperCase() || 'GU'}
                     </Text>
                   </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalRowLabel}>Interested in Admin:</Text>
+                    <Text
+                      style={[
+                        styles.modalRowValue,
+                        {
+                          color: selectedRequest.interested_in_administrator
+                            ? colors.saffronDark
+                            : colors.textSecondary,
+                          fontWeight: '700',
+                        },
+                      ]}
+                    >
+                      {selectedRequest.interested_in_administrator
+                        ? 'Yes (Interested Candidate)'
+                        : 'No'}
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Emergency Contact Section */}
@@ -605,6 +692,19 @@ export const AdminRequestsScreen = ({ navigation }) => {
                       This profile is already {selectedRequest.status}.
                     </Text>
                   </View>
+                )}
+
+                {/* Super Admin Privileged Hard Delete (Section 9 & Phase 11) */}
+                {isSuperAdmin && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => handleHardDelete(selectedRequest)}
+                    style={styles.hardDeleteBtn}
+                  >
+                    <Text style={styles.hardDeleteBtnText}>
+                      Permanent Hard Delete (Super Admin)
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </ScrollView>
             )}
@@ -1228,5 +1328,54 @@ const styles = StyleSheet.create({
   },
   feedbackActionBtn: {
     width: '100%',
+  },
+  adminCandidateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF8E7',
+    borderWidth: 1,
+    borderColor: colors.gold,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: borderRadius.sm,
+    marginTop: 4,
+  },
+  adminCandidateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.saffronDark,
+  },
+  cardHardDeleteBtn: {
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: colors.statusEmergency,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHardDeleteText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.statusEmergency,
+  },
+  hardDeleteBtn: {
+    marginTop: spacing.md,
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1.5,
+    borderColor: colors.statusEmergency,
+    borderRadius: borderRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hardDeleteBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.statusEmergency,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

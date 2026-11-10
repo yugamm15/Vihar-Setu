@@ -21,7 +21,8 @@ import { t } from '../../../core/localization/i18n';
 
 export const OtpVerificationScreen = ({ route, navigation }) => {
   const scrollViewRef = useRef(null);
-  const { email } = route.params || { email: '' };
+  const { email, phone, identifier, isPhone } = route.params || {};
+  const target = identifier || phone || email || '';
   const { verifyOtp, requestOtp, isLoading, error } = useAuthStore();
 
   const [otp, setOtp] = useState('');
@@ -71,7 +72,7 @@ export const OtpVerificationScreen = ({ route, navigation }) => {
       return;
     }
 
-    const result = await verifyOtp(email, cleanOtp);
+    const result = await verifyOtp(target, cleanOtp);
     if (!result.success) {
       setLocalError(t('auth.otp_failed'));
       return;
@@ -87,7 +88,7 @@ export const OtpVerificationScreen = ({ route, navigation }) => {
     if (timer === 0) {
       setTimer(30);
       setOtp('');
-      await requestOtp(email);
+      await requestOtp(target);
     }
   };
 
@@ -116,13 +117,13 @@ export const OtpVerificationScreen = ({ route, navigation }) => {
         <View style={[styles.card, shadows.card]}>
           <Text style={styles.title}>{t('auth.otp_title')}</Text>
           <Text style={styles.subtitle}>
-            {t('auth.otp_subtitle')}{' '}
-            <Text style={styles.emailHighlight}>{email}</Text>
+            Enter the 6-digit verification code sent to{' '}
+            <Text style={styles.emailHighlight}>{target || email}</Text>
           </Text>
 
           <CustomTextInput
             label="Verification Code (OTP)"
-            placeholder="Enter code from email"
+            placeholder="Enter 6-digit OTP code"
             value={otp}
             onChangeText={(text) => {
               setOtp(text);

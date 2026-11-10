@@ -3,10 +3,75 @@ import { ROLES } from '../../../core/constants/roles';
 
 export const authService = {
   /**
-   * Request Live Email OTP from Supabase (for Sevaks only)
+   * Helper to check if input is a 10-digit Indian phone number
    */
-  async signInWithOtp(emailAddress) {
-    const email = emailAddress.trim().toLowerCase();
+  isPhoneNumber(val) {
+    if (!val) return false;
+    const clean = String(val).replace(/[^0-9]/g, '');
+    return clean.length === 10 || (clean.length === 12 && clean.startsWith('91'));
+  },
+
+  /**
+   * Format phone number to E.164 (+91XXXXXXXXXX)
+   */
+  formatPhone(val) {
+    if (!val) return '';
+    const clean = String(val).replace(/[^0-9]/g, '');
+    if (clean.length === 10) return `+91${clean}`;
+    if (clean.length === 12 && clean.startsWith('91')) return `+${clean}`;
+    return val;
+  },
+
+  /**
+   * Request Live Phone SMS or Email OTP from Supabase (for Sevaks)
+   */
+  async signInWithOtp(identifier) {
+    const raw = String(identifier || '').trim();
+
+    if (this.isPhoneNumber(raw)) {
+      const fullPhone = this.formatPhone(raw);
+
+      // Guard: Check if phone is an Administrator / Super Admin account
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, user_roles(roles(name))')
+          .eq('phone', fullPhone)
+          .maybeSingle();
+
+        if (profile) {
+          const roleNames = (profile.user_roles || []).map((ur) => ur.roles?.name);
+          if (
+            roleNames.includes(ROLES.SUPER_ADMIN) ||
+            roleNames.includes(ROLES.ADMIN)
+          ) {
+            return {
+              data: null,
+              error: {
+                message:
+                  'This phone number is registered as an Administrator account. Please use "Administrator / Super Admin Login" with your password, or enter a correct Sevak mobile number.',
+              },
+            };
+          }
+        }
+      } catch (e) {
+        // Proceed
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signInWithOtp({
+          phone: fullPhone,
+          options: {
+            shouldCreateUser: true,
+          },
+        });
+        return { data, error, isPhone: true, identifier: fullPhone };
+      } catch (e) {
+        return { data: null, error: e, isPhone: true, identifier: fullPhone };
+      }
+    }
+
+    const email = raw.toLowerCase();
 
     // 1. Guard: Check if email is an Administrator / Super Admin account
     try {
@@ -59,9 +124,9 @@ export const authService = {
           shouldCreateUser: true,
         },
       });
-      return { data, error };
+      return { data, error, isPhone: false, identifier: email };
     } catch (e) {
-      return { data: null, error: e };
+      return { data: null, error: e, isPhone: false, identifier: email };
     }
   },
 
@@ -102,17 +167,28 @@ export const authService = {
   },
 
   /**
-   * Verify Live Email OTP with Supabase (for Sevaks)
+   * Verify Live Phone SMS or Email OTP with Supabase (for Sevaks)
    */
-  async verifyOtp(emailAddress, token) {
-    const email = emailAddress.trim().toLowerCase();
+  async verifyOtp(identifier, token) {
+    const raw = String(identifier || '').trim();
+    const isPhone = this.isPhoneNumber(raw);
+    const fullPhone = isPhone ? this.formatPhone(raw) : '';
+    const email = !isPhone ? raw.toLowerCase() : '';
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: token.trim(),
-        type: 'email',
-      });
+      const verifyPayload = isPhone
+        ? {
+            phone: fullPhone,
+            token: token.trim(),
+            type: 'sms',
+          }
+        : {
+            email: email,
+            token: token.trim(),
+            type: 'email',
+          };
+
+      const { data, error } = await supabase.auth.verifyOtp(verifyPayload);
 
       if (error) throw error;
 
@@ -125,7 +201,8 @@ export const authService = {
           ...data,
           profile: profile || {
             id: user.id,
-            email: user.email,
+            email: user.email || email,
+            phone: user.phone || fullPhone,
             status: 'PENDING',
             full_name: '',
           },

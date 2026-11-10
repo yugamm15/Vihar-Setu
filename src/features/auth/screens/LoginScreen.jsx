@@ -55,25 +55,31 @@ export const LoginScreen = ({ navigation }) => {
     };
   }, []);
 
-  const validateEmail = (val) => {
-    const trimmed = val.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) {
-      return false;
+  const validateIdentifier = (val) => {
+    const trimmed = (val || '').trim();
+    const cleanDigits = trimmed.replace(/[^0-9]/g, '');
+    if (cleanDigits.length === 10) {
+      return { type: 'phone', value: cleanDigits };
     }
-    return trimmed;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailRegex.test(trimmed)) {
+      return { type: 'email', value: trimmed.toLowerCase() };
+    }
+    return null;
   };
 
   const handleAction = async () => {
     setLocalError('');
-    const validEmail = validateEmail(email);
-    if (!validEmail) {
-      setLocalError(t('auth.invalid_email'));
-      return;
-    }
 
     // Password login for Administrator / Super Admin
     if (isAdminMode) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const validEmail = email.trim().toLowerCase();
+      if (!emailRegex.test(validEmail)) {
+        setLocalError(t('auth.invalid_email'));
+        return;
+      }
+
       if (!password.trim()) {
         setLocalError('Please enter your administrator password.');
         return;
@@ -86,18 +92,30 @@ export const LoginScreen = ({ navigation }) => {
       return;
     }
 
+    // Sevak Mode: Validates either 10-digit Phone or Email
+    const parsed = validateIdentifier(email);
+    if (!parsed) {
+      setLocalError('Please enter a valid 10-digit mobile number or email address.');
+      return;
+    }
+
     // Guard: If in Sevak OTP mode and entered Super Admin email
-    if (!isAdminMode && validEmail === 'bhemanibhemani@gmail.com') {
+    if (parsed.type === 'email' && parsed.value === 'bhemanibhemani@gmail.com') {
       setLocalError(
-        'This email belongs to the Super Admin account. Please switch to "Administrator / Super Admin Login" below, or enter a correct Sevak email address.'
+        'This email belongs to the Super Admin account. Please switch to "Administrator / Super Admin Login" below, or enter a correct Sevak mobile/email.'
       );
       return;
     }
 
-    // Standard Email OTP request for Sevaks
-    const success = await requestOtp(validEmail);
+    // Request Phone SMS or Email OTP for Sevaks
+    const success = await requestOtp(parsed.value);
     if (success) {
-      navigation.navigate('OtpVerification', { email: validEmail });
+      navigation.navigate('OtpVerification', {
+        identifier: parsed.value,
+        isPhone: parsed.type === 'phone',
+        email: parsed.type === 'email' ? parsed.value : '',
+        phone: parsed.type === 'phone' ? parsed.value : '',
+      });
     }
   };
 
@@ -161,16 +179,20 @@ export const LoginScreen = ({ navigation }) => {
             </Text>
           </View>
 
-          {/* Email Input */}
+          {/* Mobile Number / Email Input */}
           <CustomTextInput
-            label={t('auth.email_label')}
-            placeholder={t('auth.email_placeholder')}
+            label={isAdminMode ? t('auth.email_label') : 'Mobile Number or Email'}
+            placeholder={
+              isAdminMode
+                ? t('auth.email_placeholder')
+                : 'Enter 10-digit mobile number or email'
+            }
             value={email}
             onChangeText={(text) => {
               setEmail(text);
               if (localError) setLocalError('');
             }}
-            keyboardType="email-address"
+            keyboardType={isAdminMode ? 'email-address' : 'default'}
             autoCapitalize="none"
             autoCorrect={false}
             error={localError || error}
