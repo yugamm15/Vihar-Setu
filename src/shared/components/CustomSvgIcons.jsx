@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Polyline, G } from 'react-native-svg';
 import { colors } from '../../core/theme/colors';
 
 export const JainEmblemIcon = ({ size = 64, color = colors.gold, secondaryColor = colors.deepMaroon }) => (
@@ -243,4 +243,19 @@ export const WomenSafetyShieldIcon = ({ size = 24, color = colors.deepMaroon }) 
     <Path d="M9.5 15.5h5" />
   </Svg>
 );
+
+export const ClockIcon = ({ size = 24, color = colors.deepMaroon }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="10" />
+    <Polyline points="12 6 12 12 16 14" />
+  </Svg>
+);
+
+export const PauseIcon = ({ size = 24, color = colors.deepMaroon }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="6" y="4" width="4" height="16" />
+    <Rect x="14" y="4" width="4" height="16" />
+  </Svg>
+);
+
 

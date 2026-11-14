@@ -14,6 +14,7 @@ import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { AppHeader } from '../../../shared/components/AppHeader';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
+import { NotificationBellButton } from '../../notifications/components/NotificationBellButton';
 import {
   ShieldIcon,
   AlertTriangleIcon,
@@ -76,16 +77,19 @@ export const AdminDashboardScreen = ({ navigation }) => {
       setMetrics(metricsData);
 
       if (dbVihars && dbVihars.length > 0) {
-        const formatted = dbVihars.map((v) => ({
-          id: v.id,
-          sangha: v.title || 'Pujya Sadhviji Maharaj Saheb',
-          source: v.source_name || 'Starting Upashray',
-          destination: v.dest_name || 'Designated Upashray',
-          leadSevak: v.profiles?.full_name || 'Active Volunteer',
-          battery: '95%',
-          speed: '4.0 km/h',
-          status: v.safety_status || SAFETY_STATUS.SAFE,
-        }));
+        const formatted = dbVihars.map((v) => {
+          const activeHold = v.vihar_holds?.find((h) => h.status === 'ACTIVE');
+          return {
+            id: v.id,
+            sangha: v.title || 'Pujya Sadhviji Maharaj Saheb',
+            source: v.source_name || 'Starting Upashray',
+            destination: v.dest_name || 'Designated Upashray',
+            leadSevak: v.profiles?.full_name || 'Active Volunteer',
+            battery: '92%',
+            speed: activeHold ? '0.0 km/h (Hold)' : '4.0 km/h',
+            status: activeHold ? SAFETY_STATUS.HOLD : (v.safety_status || SAFETY_STATUS.SAFE),
+          };
+        });
         setActiveViharsList(formatted);
       } else {
         setActiveViharsList(DEMO_LIVE_VIHARS);
@@ -121,6 +125,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
         title={t('app_name')}
         subtitle="Super Admin Console • Surat"
         showLogo
+        rightElement={<NotificationBellButton />}
       />
 
       <ScrollView

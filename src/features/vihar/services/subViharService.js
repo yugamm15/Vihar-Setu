@@ -51,6 +51,69 @@ export const subViharService = {
   },
 
   /**
+   * Lookup a registered Sevak by mobile number or email address
+   * Enforces strict validation: prevents self-transfer & inactive accounts
+   */
+  async lookupSevakByContact(contactInput, currentUserId) {
+    try {
+      const raw = String(contactInput || '').trim();
+      if (!raw) return { data: null, error: null };
+
+      const cleanDigits = raw.replace(/[^0-9]/g, '');
+      const isEmail = raw.includes('@');
+
+      let query = supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, city, area, blood_group, avatar_url, status');
+
+      if (isEmail) {
+        query = query.eq('email', raw.toLowerCase());
+      } else if (cleanDigits.length >= 10) {
+        const last10 = cleanDigits.slice(-10);
+        query = query.or(`phone.eq.+91${last10},phone.eq.${last10},phone.ilike.%${last10}%`);
+      } else {
+        return {
+          data: null,
+          error: 'Please enter a valid 10-digit mobile number or email address.',
+        };
+      }
+
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+
+      if (!data) {
+        return {
+          data: null,
+          error: 'No registered Sevak found with this mobile number or email.',
+        };
+      }
+
+      // Guard 1: Cannot transfer to oneself
+      if (currentUserId && data.id === currentUserId) {
+        return {
+          data: null,
+          isSelf: true,
+          error: 'You cannot transfer Vihar responsibility to yourself. Please enter another verified Sevak’s mobile number or email.',
+        };
+      }
+
+      // Guard 2: Must be ACTIVE
+      if (data.status !== 'ACTIVE') {
+        return {
+          data: null,
+          isInactive: true,
+          error: `This Sevak account is currently ${data.status || 'INACTIVE'}. Only approved active volunteers can receive Vihar duty.`,
+        };
+      }
+
+      return { data, error: null };
+    } catch (e) {
+      console.warn('[SubViharService] lookupSevakByContact error:', e);
+      return { data: null, error: e?.message || 'Lookup failed' };
+    }
+  },
+
+  /**
    * Fetch Available Verified Sevaks for Handover Assignment
    */
   async getAvailableSevaksForHandover(currentUserId) {

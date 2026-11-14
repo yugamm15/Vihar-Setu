@@ -84,23 +84,37 @@ export const AdminLiveTrackingScreen = () => {
     try {
       const { data, error } = await viharService.getAllActiveVihars();
       if (!error && data && data.length > 0) {
-        const formatted = data.map((v) => ({
-          id: v.id,
-          sangha: v.title || 'Pujya Sadhviji Bhagwant',
-          leadSevak: v.profiles?.full_name || 'Active Sevak',
-          phone: v.profiles?.phone || '+919876500000',
-          currentLocation: v.source_name || 'Active Vihar Corridor, Surat',
-          destination: v.dest_name || 'Designated Upashray',
-          status: v.safety_status || SAFETY_STATUS.SAFE,
-          subViharLabel: v.vihar_subsessions?.[0]
-            ? `Sub-Vihar #${v.vihar_subsessions[0].sub_vihar_number}`
-            : 'Sub-Vihar #1',
-          battery: 95,
-          speed: 4.0,
-          distanceCovered: v.total_distance_km ? `${v.total_distance_km} km` : '3.2 km',
-          lastPing: 'Just now',
-          coordinates: { lat: v.source_lat || 21.1959, lng: v.source_lng || 72.7933 },
-        }));
+        const formatted = data.map((v) => {
+          const activeHold = v.vihar_holds?.find((h) => h.status === 'ACTIVE');
+          const status = activeHold
+            ? SAFETY_STATUS.HOLD
+            : (v.safety_status || SAFETY_STATUS.SAFE);
+
+          return {
+            id: v.id,
+            sangha: v.title || 'Pujya Sadhviji Bhagwant',
+            leadSevak: v.profiles?.full_name || 'Active Sevak',
+            phone: v.profiles?.phone || '+919876500000',
+            currentLocation: v.source_name || 'Active Vihar Corridor, Surat',
+            destination: v.dest_name || 'Designated Upashray',
+            status,
+            activeHold: activeHold
+              ? {
+                  reason: activeHold.reason,
+                  locationName: activeHold.location_name,
+                  startedAt: activeHold.hold_start,
+                }
+              : null,
+            subViharLabel: v.vihar_subsessions?.[0]
+              ? `Sub-Vihar #${v.vihar_subsessions[0].sub_vihar_number}`
+              : 'Sub-Vihar #1',
+            battery: 92,
+            speed: activeHold ? 0.0 : 4.0,
+            distanceCovered: v.total_distance_km ? `${v.total_distance_km} km` : '3.2 km',
+            lastPing: 'Just now',
+            coordinates: { lat: v.source_lat || 21.1959, lng: v.source_lng || 72.7933 },
+          };
+        });
         setActiveVihars(formatted);
         setIsLiveFromDb(true);
       } else {
@@ -136,6 +150,7 @@ export const AdminLiveTrackingScreen = () => {
 
   const filteredVihars = activeVihars.filter((v) => {
     if (filter === 'SAFE') return v.status === SAFETY_STATUS.SAFE;
+    if (filter === 'HOLD') return v.status === SAFETY_STATUS.HOLD;
     if (filter === 'WARNING') return v.status === SAFETY_STATUS.WARNING;
     if (filter === 'EMERGENCY') return v.status === SAFETY_STATUS.EMERGENCY;
     return true;
@@ -148,6 +163,7 @@ export const AdminLiveTrackingScreen = () => {
   };
 
   const safeCount = activeVihars.filter((v) => v.status === SAFETY_STATUS.SAFE).length;
+  const holdCount = activeVihars.filter((v) => v.status === SAFETY_STATUS.HOLD).length;
   const warningCount = activeVihars.filter((v) => v.status === SAFETY_STATUS.WARNING).length;
   const emergencyCount = activeVihars.filter((v) => v.status === SAFETY_STATUS.EMERGENCY).length;
 
@@ -188,6 +204,15 @@ export const AdminLiveTrackingScreen = () => {
           >
             <Text style={[styles.filterChipText, filter === 'SAFE' && styles.filterChipTextActive]}>
               Safe ({safeCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setFilter('HOLD')}
+            style={[styles.filterChip, filter === 'HOLD' && styles.filterChipActiveHold]}
+          >
+            <Text style={[styles.filterChipText, filter === 'HOLD' && styles.filterChipTextActive]}>
+              Hold ({holdCount})
             </Text>
           </TouchableOpacity>
 
@@ -289,6 +314,15 @@ export const AdminLiveTrackingScreen = () => {
               <Text style={styles.destText}>Destination: {item.destination}</Text>
             </View>
 
+            {/* Active Hold Details (Phase 20) */}
+            {item.activeHold ? (
+              <View style={styles.holdInfoBox}>
+                <Text style={styles.holdInfoText}>
+                  ⏸️ On Hold: {item.activeHold.reason} ({item.activeHold.locationName || 'En route'})
+                </Text>
+              </View>
+            ) : null}
+
             {/* Telemetry Row */}
             <View style={styles.telemetryRow}>
               <View style={styles.telemetryCol}>
@@ -355,6 +389,10 @@ const styles = StyleSheet.create({
   filterChipActiveSafe: {
     backgroundColor: '#E8F5E9',
     borderColor: colors.statusSafe,
+  },
+  filterChipActiveHold: {
+    backgroundColor: '#FFF8E1',
+    borderColor: colors.statusWarning,
   },
   filterChipActiveWarning: {
     backgroundColor: '#FFF3E0',
@@ -586,5 +624,19 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.warmIvory,
     fontWeight: '700',
+  },
+  holdInfoBox: {
+    backgroundColor: '#FFF9E6',
+    borderWidth: 1,
+    borderColor: colors.statusWarning,
+    borderRadius: borderRadius.sm,
+    padding: spacing.xs + 2,
+    marginBottom: spacing.xs,
+  },
+  holdInfoText: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8A5D00',
   },
 });

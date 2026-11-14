@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { AppHeader } from '../../../shared/components/AppHeader';
+import { NotificationBellButton } from '../../notifications/components/NotificationBellButton';
 import {
   LogoutIcon,
   UsersGroupIcon,
@@ -18,7 +19,9 @@ import {
   LogsFileIcon,
   ReportsChartIcon,
   CheckCircleIcon,
+  MapPinIcon,
 } from '../../../shared/components/CustomSvgIcons';
+import { AreaManagementModal } from '../components/AreaManagementModal';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useAlertStore } from '../../../shared/hooks/useAlertStore';
 import { t } from '../../../core/localization/i18n';
@@ -26,6 +29,7 @@ import { t } from '../../../core/localization/i18n';
 export const SuperAdminDashboardScreen = ({ navigation }) => {
   const { profile, logout } = useAuthStore();
   const { showAlert } = useAlertStore();
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
 
   const handleLogout = () => {
     showAlert({
@@ -69,6 +73,15 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
       targetTab: 'AlertsTab',
     },
     {
+      id: 'areas',
+      title: 'Operational Area Management',
+      desc: 'Super Administrator area jurisdiction & regional expansion (Surat)',
+      icon: MapPinIcon,
+      bgColor: '#FFF3E0',
+      iconColor: colors.saffronDark,
+      isModalAction: true,
+    },
+    {
       id: 'config',
       title: 'System Settings & Telemetry Limits',
       desc: 'GPS frequency, 50m deviation threshold, stationary timeout',
@@ -88,13 +101,16 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
         subtitle={profile?.full_name || 'Super Administrator'}
         showLogo={true}
         rightElement={
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={styles.logoutBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <LogoutIcon size={20} color={colors.warmIvory} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <NotificationBellButton />
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={styles.logoutBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <LogoutIcon size={20} color={colors.warmIvory} />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -113,7 +129,13 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
             <TouchableOpacity
               key={item.id}
               activeOpacity={0.85}
-              onPress={() => navigation.navigate(item.targetTab)}
+              onPress={() => {
+                if (item.isModalAction) {
+                  setIsAreaModalOpen(true);
+                } else if (item.targetTab) {
+                  navigation.navigate(item.targetTab);
+                }
+              }}
               style={[styles.moduleCard, shadows.card]}
             >
               <View style={styles.cardLeft}>
@@ -130,6 +152,12 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
           );
         })}
       </ScrollView>
+
+      {/* Phase 28: Area Management Modal */}
+      <AreaManagementModal
+        visible={isAreaModalOpen}
+        onClose={() => setIsAreaModalOpen(false)}
+      />
     </View>
   );
 };

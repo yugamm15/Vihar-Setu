@@ -15,6 +15,7 @@ import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { AppHeader } from '../../../shared/components/AppHeader';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
+import { NotificationBellButton } from '../../notifications/components/NotificationBellButton';
 import {
   ShieldIcon,
   NavigationIcon,
@@ -110,13 +111,16 @@ export const SevakHomeScreen = ({ navigation }) => {
         subtitle={profile?.full_name || 'Vihar Sevika'}
         showLogo={true}
         rightElement={
-          <TouchableOpacity
-            onPress={logout}
-            style={styles.logoutBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <LogoutIcon size={20} color={colors.warmIvory} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <NotificationBellButton />
+            <TouchableOpacity
+              onPress={logout}
+              style={styles.logoutBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <LogoutIcon size={20} color={colors.warmIvory} />
+            </TouchableOpacity>
+          </View>
         }
       />
 

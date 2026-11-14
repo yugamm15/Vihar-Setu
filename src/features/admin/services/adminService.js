@@ -359,6 +359,96 @@ export const adminService = {
   },
 
   /**
+   * Fetch all operational areas (Phase 28)
+   */
+  async fetchAreas() {
+    try {
+      const { data, error } = await supabase
+        .from('areas')
+        .select('*')
+        .order('city', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (e) {
+      console.warn('[AdminService] fetchAreas error:', e);
+      return { data: [], error: e };
+    }
+  },
+
+  /**
+   * Create a new operational area/region (Super Admin)
+   */
+  async createArea({ name, city = 'Surat', state = 'Gujarat' }) {
+    try {
+      const { data, error } = await supabase
+        .from('areas')
+        .insert({
+          name: name.trim(),
+          city: city.trim(),
+          state: state.trim(),
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      this.notifyListeners();
+      return { data, error: null };
+    } catch (e) {
+      console.warn('[AdminService] createArea error:', e);
+      return { data: null, error: e };
+    }
+  },
+
+  /**
+   * Fetch all administrator area assignments (Phase 28)
+   */
+  async fetchAdministrators() {
+    try {
+      const { data, error } = await supabase
+        .from('administrators')
+        .select('*, profiles:user_id(id, full_name, phone, email, area), areas:area_id(id, name, city)')
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (e) {
+      console.warn('[AdminService] fetchAdministrators error:', e);
+      return { data: [], error: e };
+    }
+  },
+
+  /**
+   * Assign or update an Administrator's operational area (Super Admin)
+   */
+  async assignAdminArea(userId, areaId) {
+    try {
+      const { data, error } = await supabase
+        .from('administrators')
+        .upsert(
+          {
+            user_id: userId,
+            area_id: areaId,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        )
+        .select()
+        .single();
+
+      if (error) throw error;
+      this.notifyListeners();
+      return { data, error: null };
+    } catch (e) {
+      console.warn('[AdminService] assignAdminArea error:', e);
+      return { data: null, error: e };
+    }
+  },
+
+  /**
    * Subscribe to Realtime Profile changes (with unique channel instance)
    */
   subscribeToRequests(onUpdate) {

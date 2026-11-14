@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuthStore } from '../features/auth/hooks/useAuthStore';
+import { realtimeBroadcastService } from '../core/services/realtimeBroadcastService';
 import { AuthNavigator } from './AuthNavigator';
 import { SevakNavigator } from './SevakNavigator';
 import { ProfileSetupScreen } from '../features/auth/screens/ProfileSetupScreen';
@@ -10,7 +11,18 @@ import { SuperAdminNavigator } from './SuperAdminNavigator';
 import { ROLES } from '../core/constants/roles';
 
 export const AppNavigator = () => {
-  const { isAuthenticated, role, status, profile } = useAuthStore();
+  const { isAuthenticated, role, status, profile, user } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      realtimeBroadcastService.init(user.id);
+    } else {
+      realtimeBroadcastService.cleanup();
+    }
+    return () => {
+      realtimeBroadcastService.cleanup();
+    };
+  }, [isAuthenticated, user?.id]);
 
   const userStatus = status || profile?.status || 'PENDING';
 

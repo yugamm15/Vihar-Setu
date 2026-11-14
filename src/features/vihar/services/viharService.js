@@ -1,4 +1,5 @@
 import { supabase } from '../../../core/config/supabase';
+import { escalationService } from './escalationService';
 
 /**
  * Vihar Service Layer
@@ -218,14 +219,14 @@ export const viharService = {
     try {
       const { data, error } = await supabase
         .from('vihars')
-        .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area), vihar_subsessions(id, sub_vihar_number, title, status)')
+        .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area), vihar_subsessions(id, sub_vihar_number, title, status), vihar_holds(id, reason, location_name, status, hold_start)')
         .eq('status', 'ACTIVE')
         .order('started_at', { ascending: false });
 
       if (error) {
         const { data: fallbackData } = await supabase
           .from('vihars')
-          .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area)')
+          .select('*, profiles:user_id(full_name, phone, emergency_contact_phone, city, area), vihar_subsessions(id, sub_vihar_number, title, status)')
           .eq('status', 'ACTIVE')
           .order('started_at', { ascending: false });
         return { data: fallbackData || [], error: null };
@@ -260,6 +261,8 @@ export const viharService = {
    */
   async resolveEmergency(emergencyId, resolutionNotes = 'Resolved by Administrator') {
     try {
+      escalationService.clearTimers(emergencyId);
+
       const { data, error } = await supabase
         .from('emergencies')
         .update({
@@ -356,6 +359,13 @@ export const viharService = {
         // Non-fatal
       }
 
+      // 5. Initiate Multi-Admin Escalation Engine (Phase 22)
+      try {
+        escalationService.initiateEscalation(emergencyData.id);
+      } catch (escErr) {
+        console.warn('[ViharService] Escalation initiate warning:', escErr);
+      }
+
       return { data: emergencyData, error: null };
     } catch (e) {
       console.warn('[ViharService] triggerEmergencySOS error:', e);
@@ -368,6 +378,8 @@ export const viharService = {
    */
   async cancelEmergencyBySevak(emergencyId, viharId = null, reason = 'False Alarm - Sevika & Sadhviji Safe') {
     try {
+      escalationService.clearTimers(emergencyId);
+
       const { data, error } = await supabase
         .from('emergencies')
         .update({

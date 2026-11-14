@@ -19,6 +19,7 @@ import {
   AlertTriangleIcon,
   WomenSafetyShieldIcon,
 } from '../../../shared/components/CustomSvgIcons';
+import { policeEmergencyService } from '../services/policeEmergencyService';
 
 export const WomenSafetyEmergencyPanel = ({
   activeVihar,
@@ -39,8 +40,14 @@ export const WomenSafetyEmergencyPanel = ({
 
   const handleCall = (number) => {
     if (!number) return;
-    const cleanNumber = number.replace(/[^0-9]/g, '');
-    Linking.openURL(`tel:${cleanNumber}`);
+    policeEmergencyService.dialEmergencyNumber(number, {
+      userId: profile?.id,
+      viharId: activeVihar?.id,
+      latitude,
+      longitude,
+      batteryPercentage: activeEmergency?.battery_percentage || 88,
+      notes: `Direct call initiated from emergency panel to ${number}`,
+    });
   };
 
   const handleCopyCoords = () => {

@@ -30,6 +30,9 @@ import {
   SirenIcon,
   FlashlightIcon,
   WomenSafetyShieldIcon,
+  ClockIcon,
+  PauseIcon,
+  UsersGroupIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useViharStore } from '../../vihar/hooks/useViharStore';
@@ -46,7 +49,13 @@ import { WomenSafetyEmergencyPanel } from '../../vihar/components/WomenSafetyEme
 import { WomenSafetyHeartbeatModal } from '../../vihar/components/WomenSafetyHeartbeatModal';
 import { WomenSafetyDisarmModal } from '../../vihar/components/WomenSafetyDisarmModal';
 import { ViharHandoverModal } from '../../vihar/components/ViharHandoverModal';
+import { ViharHoldModal } from '../../vihar/components/ViharHoldModal';
 import { subViharService } from '../../vihar/services/subViharService';
+import { holdService, HOLD_REASONS } from '../../vihar/services/holdService';
+import { locationTelemetryService, GPS_STATUS } from '../../vihar/services/locationTelemetryService';
+import { offlineSyncService } from '../../vihar/services/offlineSyncService';
+import { routeDeviationEngine, DEVIATION_STATUS } from '../../vihar/services/routeDeviationEngine';
+import { stationaryWatchdogService } from '../../vihar/services/stationaryWatchdogService';
 import { t } from '../../../core/localization/i18n';
 
 export const SevakViharScreen = ({ navigation }) => {
@@ -74,6 +83,22 @@ export const SevakViharScreen = ({ navigation }) => {
   const [disarmModalVisible, setDisarmModalVisible] = useState(false);
   const [handoverModalVisible, setHandoverModalVisible] = useState(false);
   const [currentSubVihar, setCurrentSubVihar] = useState(null);
+
+  // Phase 16 & 17 Telemetry & Offline States
+  const [telemetry, setTelemetry] = useState(locationTelemetryService.getTelemetrySnapshot());
+  const [offlineStatus, setOfflineStatus] = useState(offlineSyncService.getStatus());
+
+  // Phase 18 Route Deviation State
+  const [deviationInfo, setDeviationInfo] = useState({
+    status: DEVIATION_STATUS.ON_TRACK,
+    deviationMeters: 0,
+    level2Escalated: false,
+  });
+
+  // Phase 20 Hold Management State
+  const [activeHold, setActiveHold] = useState(null);
+  const [holdModalVisible, setHoldModalVisible] = useState(false);
+  const [holdElapsedMins, setHoldElapsedMins] = useState(0);
 
   // Physical Deterrents State
   const [isSirenActive, setIsSirenActive] = useState(false);
@@ -143,51 +168,92 @@ export const SevakViharScreen = ({ navigation }) => {
     }
   }, [activeVihar?.id]);
 
-  // Periodic GPS Telemetry Breadcrumbs (associated with active Sub-Vihar)
+  // Load Active Hold on activeVihar change (Phase 20)
   useEffect(() => {
-    if (!activeVihar?.id || !user?.id) return;
-
-    const executePing = (lat, lng, speed = 4.2) => {
-      viharService.recordLocationPing({
-        viharId: activeVihar.id,
-        subViharId: currentSubVihar?.id || null,
-        userId: user.id,
-        latitude: lat,
-        longitude: lng,
-        speedKmh: speed,
-        batteryPercentage: 88,
-        networkStatus: 'ONLINE',
+    if (activeVihar?.id) {
+      holdService.getActiveHold(activeVihar.id).then(({ data }) => {
+        setActiveHold(data);
       });
+    } else {
+      setActiveHold(null);
+    }
+  }, [activeVihar?.id]);
+
+  // Live Hold Elapsed Timer (Phase 20)
+  useEffect(() => {
+    if (!activeHold?.hold_start) {
+      setHoldElapsedMins(0);
+      return;
+    }
+
+    const calcElapsed = () => {
+      const startMs = new Date(activeHold.hold_start).getTime();
+      const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 60000));
+      setHoldElapsedMins(elapsed);
     };
 
-    const pingTimer = setInterval(() => {
-      if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            executePing(
-              pos.coords.latitude,
-              pos.coords.longitude,
-              (pos.coords.speed || 1.1) * 3.6
-            );
-          },
-          () => {
-            executePing(
-              activeVihar.source_lat || 21.1959,
-              activeVihar.source_lng || 72.7933
-            );
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
+    calcElapsed();
+    const interval = setInterval(calcElapsed, 15000);
+    return () => clearInterval(interval);
+  }, [activeHold?.hold_start]);
+
+  // Phase 16, 17, 18, 19: Background Location Tracking, Battery Telemetry, Offline Queue, Route Deviation & Stationary Watchdog
+  useEffect(() => {
+    if (!activeVihar?.id || !user?.id) {
+      locationTelemetryService.stopTracking();
+      routeDeviationEngine.reset();
+      stationaryWatchdogService.reset();
+      return;
+    }
+
+    // 1. Subscribe to offline sync engine status
+    const unsubOffline = offlineSyncService.subscribe(setOfflineStatus);
+
+    // 2. Subscribe to route deviation engine updates
+    const unsubDeviation = routeDeviationEngine.subscribe(setDeviationInfo);
+
+    // 3. Subscribe to stationary watchdog safety checks
+    const unsubWatchdog = stationaryWatchdogService.subscribe((event) => {
+      if (event.type === 'TRIGGER_SAFETY_CHECK') {
+        setShowHeartbeatModal(true);
+      }
+    });
+
+    // 4. Start background & battery-aware location tracking
+    locationTelemetryService.startTracking({
+      viharId: activeVihar.id,
+      subViharId: currentSubVihar?.id || null,
+      userId: user.id,
+    });
+
+    // 5. Subscribe to live telemetry feed
+    const unsubTelemetry = locationTelemetryService.subscribe((snapshot) => {
+      setTelemetry(snapshot);
+      if (snapshot.lastPosition) {
+        // Feed coordinates into Route Deviation Engine
+        routeDeviationEngine.evaluateLocation(
+          snapshot.lastPosition,
+          activeVihar,
+          Boolean(activeHold)
         );
-      } else {
-        executePing(
-          activeVihar.source_lat || 21.1959,
-          activeVihar.source_lng || 72.7933
+
+        // Feed coordinates into Stationary Watchdog
+        stationaryWatchdogService.evaluateMovement(
+          snapshot.lastPosition,
+          activeVihar,
+          Boolean(activeHold)
         );
       }
-    }, 30000);
+    });
 
-    return () => clearInterval(pingTimer);
-  }, [activeVihar?.id, user?.id, currentSubVihar?.id]);
+    return () => {
+      locationTelemetryService.stopTracking();
+      unsubTelemetry();
+      unsubOffline();
+      unsubDeviation();
+      unsubWatchdog();
+    };
+  }, [activeVihar?.id, user?.id, currentSubVihar?.id, activeHold]);
 
   // Periodic Safety Heartbeat Countdown (120s Auto-Escalation Engine)
   useEffect(() => {
@@ -389,6 +455,47 @@ export const SevakViharScreen = ({ navigation }) => {
     }
   };
 
+  // Phase 20: Hold Handlers
+  const handleHoldStarted = (newHold) => {
+    setActiveHold(newHold);
+    showAlert({
+      type: 'INFO',
+      title: 'Vihar Placed on Hold',
+      message: 'Temporary stop recorded. Automatic stationary safety checks are paused.',
+      confirmText: 'Understood',
+      confirmVariant: 'saffron',
+    });
+  };
+
+  const handleResumeVihar = async () => {
+    if (!activeHold?.id || !activeVihar?.id) return;
+    const { success, durationMinutes, error } = await holdService.resumeVihar({
+      holdId: activeHold.id,
+      viharId: activeVihar.id,
+      holdStartTime: activeHold.hold_start,
+    });
+
+    if (success) {
+      setActiveHold(null);
+      routeDeviationEngine.reset();
+      stationaryWatchdogService.reset();
+      showAlert({
+        type: 'SUCCESS',
+        title: 'Vihar Resumed',
+        message: `Accompaniment resumed safely after ${durationMinutes} min(s) pause. Live tracking is fully active.`,
+        confirmText: 'Jai Jinendra',
+        confirmVariant: 'saffron',
+      });
+    } else {
+      showAlert({
+        type: 'ERROR',
+        title: 'Resume Failed',
+        message: error?.message || 'Could not resume Vihar. Please retry.',
+        confirmText: 'OK',
+      });
+    }
+  };
+
   const isEmergencyActive =
     Boolean(activeEmergency) || activeVihar?.safety_status === 'EMERGENCY';
 
@@ -420,6 +527,69 @@ export const SevakViharScreen = ({ navigation }) => {
               />
             ) : null}
 
+            {/* Phase 20: Active Vihar Hold Banner */}
+            {activeHold ? (
+              <View style={[styles.activeHoldCard, shadows.card]}>
+                <View style={styles.activeHoldHeader}>
+                  <ClockIcon size={22} color={colors.warning} />
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                    <Text style={styles.activeHoldBadge}>VIHAR ON TEMPORARY HOLD</Text>
+                    <Text style={styles.activeHoldReason}>
+                      {HOLD_REASONS.find((r) => r.id === activeHold.reason)?.label || activeHold.reason}
+                    </Text>
+                  </View>
+                  <View style={styles.holdTimePill}>
+                    <Text style={styles.holdTimeText}>{holdElapsedMins}m</Text>
+                  </View>
+                </View>
+                <Text style={styles.activeHoldLocation}>
+                  📍 {activeHold.location_name || 'En Route Upashray / Road'}
+                </Text>
+                {activeHold.notes ? (
+                  <Text style={styles.activeHoldNotes}>Note: {activeHold.notes}</Text>
+                ) : null}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.resumeHoldBtn}
+                  onPress={handleResumeVihar}
+                >
+                  <CheckCircleIcon size={18} color={colors.white} />
+                  <Text style={styles.resumeHoldBtnText}>Resume Vihar Seva (विहार पुनः प्रारंभ)</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* Phase 18: Route Deviation Banners */}
+            {deviationInfo.status === DEVIATION_STATUS.WARNING_LEVEL_1 && !activeHold ? (
+              <View style={styles.deviationWarningBanner}>
+                <AlertTriangleIcon size={18} color={colors.warning} />
+                <View style={{ flex: 1, marginLeft: spacing.xs }}>
+                  <Text style={styles.deviationWarningTitle}>Route Deviation Notice</Text>
+                  <Text style={styles.deviationWarningText}>
+                    You are ~{deviationInfo.deviationMeters}m off planned route. Please realign or take a hold.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.deviationHoldBtn}
+                  onPress={() => setHoldModalVisible(true)}
+                >
+                  <Text style={styles.deviationHoldBtnText}>Pause</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {deviationInfo.status === DEVIATION_STATUS.CRITICAL_LEVEL_2 && !activeHold ? (
+              <View style={styles.deviationCriticalBanner}>
+                <AlertTriangleIcon size={20} color={colors.white} />
+                <View style={{ flex: 1, marginLeft: spacing.xs }}>
+                  <Text style={styles.deviationCriticalTitle}>CRITICAL ROUTE DEVIATION</Text>
+                  <Text style={styles.deviationCriticalText}>
+                    ~{deviationInfo.deviationMeters}m departure from course. Surat Safety Administrators alerted.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
             {/* 2. Live Map Card */}
             <View style={[styles.mapCard, shadows.card]}>
               <View style={styles.liveBadgeRow}>
@@ -436,10 +606,44 @@ export const SevakViharScreen = ({ navigation }) => {
                 {activeVihar.source_name} → {activeVihar.dest_name}
               </Text>
 
+              {/* Phase 16 & 17: Dynamic Hardware & Telemetry Bar */}
               <View style={styles.telemetryBar}>
-                <Text style={styles.telemetryText}>GPS: 5m Accuracy</Text>
-                <Text style={styles.telemetryText}>Network: Online</Text>
-                <Text style={styles.telemetryText}>Battery: 88%</Text>
+                <View style={styles.telemetryItemRow}>
+                  <View
+                    style={[
+                      styles.telemetryDot,
+                      {
+                        backgroundColor:
+                          telemetry.gpsStatus === GPS_STATUS.ACTIVE
+                            ? colors.statusSafe
+                            : telemetry.gpsStatus === GPS_STATUS.WEAK
+                            ? colors.statusWarning
+                            : colors.statusEmergency,
+                      },
+                    ]}
+                  />
+                  <Text style={styles.telemetryText}>
+                    GPS: {telemetry.gpsStatus === GPS_STATUS.ACTIVE ? `${Math.round(telemetry.lastPosition?.accuracy || 5)}m` : telemetry.gpsStatus}
+                  </Text>
+                </View>
+
+                <View style={styles.telemetryItemRow}>
+                  <View
+                    style={[
+                      styles.telemetryDot,
+                      { backgroundColor: offlineStatus.isOnline ? colors.statusSafe : colors.statusWarning },
+                    ]}
+                  />
+                  <Text style={styles.telemetryText}>
+                    {offlineStatus.isOnline ? 'Online' : `Offline (${offlineStatus.pendingCount})`}
+                  </Text>
+                </View>
+
+                <View style={styles.telemetryItemRow}>
+                  <Text style={styles.telemetryText}>
+                    Bat: {telemetry.batteryPercentage}%{telemetry.isCharging ? ' ⚡' : ''}{telemetry.isPowerSaverActive ? ' (Eco)' : ''}
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -513,11 +717,11 @@ export const SevakViharScreen = ({ navigation }) => {
             {/* Phase 13: Sub-Vihar & Handover System */}
             <View style={[styles.subViharCard, shadows.subtle]}>
               <View style={styles.subViharHeaderRow}>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, paddingRight: spacing.sm }}>
                   <Text style={styles.subViharBadge}>
                     SUB-VIHAR #{currentSubVihar?.sub_vihar_number || 1} • ACTIVE DUTY
                   </Text>
-                  <Text style={styles.subViharTitle} numberOfLines={1}>
+                  <Text style={styles.subViharTitle} numberOfLines={2}>
                     {currentSubVihar?.title || 'Segment 1: Leading Accompaniment'}
                   </Text>
                 </View>
@@ -535,11 +739,26 @@ export const SevakViharScreen = ({ navigation }) => {
                 onPress={() => setHandoverModalVisible(true)}
                 style={styles.handoverActionBtn}
               >
+                <UsersGroupIcon size={18} color={colors.saffronDark} />
                 <Text style={styles.handoverActionBtnText}>
                   Handover Vihar (Transfer Duty)
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Phase 20: Temporary Hold Trigger Button (When not already on hold) */}
+            {!activeHold ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setHoldModalVisible(true)}
+                style={[styles.initiateHoldBtn, shadows.subtle]}
+              >
+                <PauseIcon size={18} color={colors.gold} />
+                <Text style={styles.initiateHoldBtnText}>
+                  Temporary Hold / Rest (अल्प विश्राम)
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             {/* 6. End Vihar Button */}
             <TouchableOpacity
@@ -1100,6 +1319,7 @@ export const SevakViharScreen = ({ navigation }) => {
         vihar={activeVihar}
         currentSubVihar={currentSubVihar}
         currentUserId={user?.id}
+        currentUserProfile={profile}
         onHandoverComplete={(newSubVihar) => {
           setCurrentSubVihar(newSubVihar);
           showAlert({
@@ -1110,6 +1330,17 @@ export const SevakViharScreen = ({ navigation }) => {
             confirmVariant: 'saffron',
           });
         }}
+      />
+
+      {/* Phase 20: Vihar Hold Modal */}
+      <ViharHoldModal
+        visible={holdModalVisible}
+        onClose={() => setHoldModalVisible(false)}
+        vihar={activeVihar}
+        currentSubVihar={currentSubVihar}
+        userId={user?.id}
+        currentLocation={telemetry.lastPosition}
+        onHoldStarted={handleHoldStarted}
       />
     </View>
   );
@@ -1303,20 +1534,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.cardBorder,
+    paddingVertical: spacing.xs,
     marginBottom: spacing.sm,
   },
   metricItem: {
     alignItems: 'center',
     flex: 1,
+    backgroundColor: '#FAF6F0',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 4,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: '#EFE5D5',
   },
   metricDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: colors.cardBorder,
+    width: 6,
   },
   metricLabel: {
     ...typography.caption,
@@ -1943,12 +2175,164 @@ const styles = StyleSheet.create({
     borderColor: colors.saffron,
     borderRadius: borderRadius.md,
     paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs + 2,
   },
   handoverActionBtnText: {
     ...typography.bodyMedium,
     color: colors.deepMaroon,
     fontWeight: '700',
+  },
+
+  /* Phase 16 & 17 Telemetry Bar Styles */
+  telemetryItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  telemetryDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+
+  /* Phase 18 Route Deviation Styles */
+  deviationWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    borderWidth: 1.5,
+    borderColor: colors.warning,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  deviationWarningTitle: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: '#8A5D00',
+  },
+  deviationWarningText: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.textPrimary,
+    marginTop: 1,
+  },
+  deviationHoldBtn: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.xs,
+  },
+  deviationHoldBtnText: {
+    ...typography.caption,
+    color: colors.white,
+    fontWeight: '700',
+  },
+  deviationCriticalBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.emergency,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  deviationCriticalTitle: {
+    ...typography.caption,
+    fontWeight: '800',
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  deviationCriticalText: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.white,
+    opacity: 0.95,
+    marginTop: 1,
+  },
+
+  /* Phase 20 Hold Management Styles */
+  activeHoldCard: {
+    backgroundColor: '#FFFBEA',
+    borderWidth: 2,
+    borderColor: colors.warning,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  activeHoldHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  activeHoldBadge: {
+    ...typography.caption,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#8A5D00',
+    letterSpacing: 0.5,
+  },
+  activeHoldReason: {
+    ...typography.bodyMedium,
+    fontWeight: '700',
+    color: colors.deepMaroon,
+  },
+  holdTimePill: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  holdTimeText: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  activeHoldLocation: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+  activeHoldNotes: {
+    ...typography.caption,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  resumeHoldBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.statusSafe,
+    borderRadius: borderRadius.md,
+    paddingVertical: 10,
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  resumeHoldBtnText: {
+    ...typography.bodyMedium,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  initiateHoldBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFDF7',
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    borderRadius: borderRadius.md,
+    paddingVertical: 11,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  initiateHoldBtnText: {
+    ...typography.bodyMedium,
+    fontWeight: '700',
+    color: colors.deepMaroon,
   },
 });

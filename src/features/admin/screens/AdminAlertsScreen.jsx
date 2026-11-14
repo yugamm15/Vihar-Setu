@@ -25,6 +25,7 @@ import {
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { viharService } from '../../vihar/services/viharService';
 import { adminService } from '../services/adminService';
+import { policeEmergencyService } from '../../vihar/services/policeEmergencyService';
 
 const SAMPLE_ALERTS = [
   {
@@ -135,10 +136,19 @@ export const AdminAlertsScreen = () => {
     adminService.notifyListeners();
   };
 
-  const handleCall = (phone) => {
+  const handleCall = (phone, alertContext = {}) => {
     if (!phone) return;
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    Linking.openURL(`tel:${cleanPhone}`);
+
+    if (cleanPhone === '112' || cleanPhone === '181') {
+      policeEmergencyService.dialEmergencyNumber(cleanPhone, {
+        userId: null,
+        viharId: null,
+        notes: `Admin triggered emergency call to ${cleanPhone} from Alerts Center for alert #${alertContext?.id || 'N/A'}`,
+      });
+    } else {
+      Linking.openURL(`tel:${cleanPhone}`);
+    }
   };
 
   return (
@@ -269,7 +279,7 @@ export const AdminAlertsScreen = () => {
                 <View style={styles.actionRow}>
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => handleCall(alert.phone)}
+                    onPress={() => handleCall(alert.phone, alert)}
                     style={styles.callBtn}
                   >
                     <PhoneIcon size={16} color={colors.warmIvory} />
@@ -280,7 +290,7 @@ export const AdminAlertsScreen = () => {
                     <>
                       <TouchableOpacity
                         activeOpacity={0.85}
-                        onPress={() => handleCall('112')}
+                        onPress={() => handleCall('112', alert)}
                         style={[styles.callBtn, { backgroundColor: '#B71C1C' }]}
                       >
                         <PhoneIcon size={14} color="#FFFFFF" />
@@ -289,7 +299,7 @@ export const AdminAlertsScreen = () => {
 
                       <TouchableOpacity
                         activeOpacity={0.85}
-                        onPress={() => handleCall('181')}
+                        onPress={() => handleCall('181', alert)}
                         style={[styles.callBtn, { backgroundColor: '#4A148C' }]}
                       >
                         <PhoneIcon size={14} color="#FFFFFF" />

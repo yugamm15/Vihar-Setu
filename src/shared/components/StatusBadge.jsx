@@ -14,6 +14,12 @@ export const StatusBadge = ({ status = SAFETY_STATUS.SAFE, customLabel = null, s
           text: colors.statusSafe,
           label: customLabel || 'SAFE',
         };
+      case SAFETY_STATUS.HOLD:
+        return {
+          bg: '#FFF8E1',
+          text: colors.statusWarning,
+          label: customLabel || 'ON HOLD',
+        };
       case SAFETY_STATUS.WARNING:
         return {
           bg: colors.statusWarningBg,

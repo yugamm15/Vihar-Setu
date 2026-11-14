@@ -31,6 +31,7 @@ import {
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useAlertStore } from '../../../shared/hooks/useAlertStore';
 import { setAppLanguage, getAppLanguage, t } from '../../../core/localization/i18n';
+import { SimulationScreen } from '../../simulation/screens/SimulationScreen';
 
 export const SevakMoreScreen = ({ navigation }) => {
   const { profile, logout } = useAuthStore();
@@ -38,6 +39,7 @@ export const SevakMoreScreen = ({ navigation }) => {
 
   const [activeModal, setActiveModal] = useState(null); // 'LANGUAGE' | 'ALARM' | 'GPS' | 'GUIDELINES' | 'HELP' | 'ABOUT'
   const [currentLang, setCurrentLang] = useState(getAppLanguage());
+  const [isSimModalOpen, setIsSimModalOpen] = useState(false);
 
   // Alarm & Settings state
   const [alarm30MinEnabled, setAlarm30MinEnabled] = useState(true);
@@ -220,6 +222,29 @@ export const SevakMoreScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Section 3: Master's Project Viva Suite (Phase 18) */}
+        <Text style={styles.sectionHeader}>Viva &amp; Demonstration Suite</Text>
+        <View style={[styles.menuCard, shadows.card]}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setIsSimModalOpen(true)}
+            style={styles.menuItem}
+          >
+            <View style={[styles.iconCircle, { backgroundColor: '#FFF3E0' }]}>
+              <NavigationIcon size={20} color={colors.saffronDark} />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: colors.saffronDark, fontWeight: '800' }]}>
+                Viva Simulation Mode (Phase 18)
+              </Text>
+              <Text style={styles.menuSub}>
+                Replay 90m, 110m, 510m, 1.05km drift &amp; offline drills
+              </Text>
+            </View>
+            <Text style={styles.menuChevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Logout Button */}
         <TouchableOpacity
           activeOpacity={0.8}
@@ -230,6 +255,15 @@ export const SevakMoreScreen = ({ navigation }) => {
           <Text style={styles.logoutText}>Logout of Account</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* VIVA SIMULATION FULL SCREEN MODAL */}
+      <Modal
+        visible={isSimModalOpen}
+        animationType="slide"
+        onRequestClose={() => setIsSimModalOpen(false)}
+      >
+        <SimulationScreen navigation={{ goBack: () => setIsSimModalOpen(false) }} />
+      </Modal>
 
       {/* LANGUAGE MODAL */}
       <Modal
