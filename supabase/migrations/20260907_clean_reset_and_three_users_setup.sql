@@ -64,17 +64,11 @@ BEGIN
     SELECT id INTO role_admin_id       FROM public.roles WHERE name = 'ADMIN' LIMIT 1;
     SELECT id INTO role_sevak_id       FROM public.roles WHERE name = 'SEVAK' LIMIT 1;
 
-    -- 3. Set Password for Super Admin (ViharSetu@2026) and confirm emails
-    UPDATE auth.users
-    SET encrypted_password = extensions.crypt('ViharSetu@2026', extensions.gen_salt('bf')),
-        email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-        updated_at = NOW()
-    WHERE id = super_admin_uid;
-
+    -- 3. Confirm emails for all 3 users (leaving your password untouched)
     UPDATE auth.users
     SET email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
         updated_at = NOW()
-    WHERE id IN (admin_uid, sevak_uid);
+    WHERE id IN (super_admin_uid, admin_uid, sevak_uid);
 
     -- 4. Create / Ensure EXACTLY ONE Area allocated to 26bmiitmscit21@gmail.com (No ON CONFLICT dependency)
     SELECT id INTO single_area_id FROM public.areas WHERE name = 'Surat Central & Rander' LIMIT 1;
