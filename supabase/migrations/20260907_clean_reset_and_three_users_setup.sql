@@ -30,10 +30,11 @@ INSERT INTO public.roles (name, description) VALUES
     ('SEVAK', 'Volunteer accompanying Jain Sadhvijis on Vihar')
 ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
 
--- STEP 4: Ensure public.areas has designated Administrator columns
+-- STEP 4: Ensure public.areas has designated Administrator columns & unique index
 ALTER TABLE public.areas ADD COLUMN IF NOT EXISTS admin_name TEXT DEFAULT 'Vihar Administrator';
 ALTER TABLE public.areas ADD COLUMN IF NOT EXISTS admin_phone TEXT DEFAULT '+919876543210';
 ALTER TABLE public.areas ADD COLUMN IF NOT EXISTS admin_email TEXT DEFAULT '26bmiitmscit21@gmail.com';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_areas_name_unique ON public.areas(name);
 
 -- STEP 5: Configure the 3 Existing Users & Allocate Exactly 1 Area
 DO $$
@@ -75,26 +76,28 @@ BEGIN
         updated_at = NOW()
     WHERE id IN (admin_uid, sevak_uid);
 
-    -- 4. Create / Ensure EXACTLY ONE Area allocated to 26bmiitmscit21@gmail.com
-    INSERT INTO public.areas (name, city, state, admin_name, admin_phone, admin_email, is_active)
-    VALUES (
-        'Surat Central & Rander',
-        'Surat',
-        'Gujarat',
-        'Vihar Administrator',
-        '+919876543210',
-        '26bmiitmscit21@gmail.com',
-        true
-    )
-    ON CONFLICT (name) DO UPDATE SET
-        admin_name  = 'Vihar Administrator',
-        admin_phone = '+919876543210',
-        admin_email = '26bmiitmscit21@gmail.com',
-        is_active   = true
-    RETURNING id INTO single_area_id;
+    -- 4. Create / Ensure EXACTLY ONE Area allocated to 26bmiitmscit21@gmail.com (No ON CONFLICT dependency)
+    SELECT id INTO single_area_id FROM public.areas WHERE name = 'Surat Central & Rander' LIMIT 1;
 
     IF single_area_id IS NULL THEN
-        SELECT id INTO single_area_id FROM public.areas WHERE name = 'Surat Central & Rander' LIMIT 1;
+        INSERT INTO public.areas (name, city, state, admin_name, admin_phone, admin_email, is_active)
+        VALUES (
+            'Surat Central & Rander',
+            'Surat',
+            'Gujarat',
+            'Vihar Administrator',
+            '+919876543210',
+            '26bmiitmscit21@gmail.com',
+            true
+        )
+        RETURNING id INTO single_area_id;
+    ELSE
+        UPDATE public.areas
+        SET admin_name  = 'Vihar Administrator',
+            admin_phone = '+919876543210',
+            admin_email = '26bmiitmscit21@gmail.com',
+            is_active   = true
+        WHERE id = single_area_id;
     END IF;
 
     -- Remove any extra/unallocated areas so ONLY this 1 area exists
