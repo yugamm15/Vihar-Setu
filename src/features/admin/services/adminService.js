@@ -52,7 +52,6 @@ export const adminService = {
       if (error) throw error;
 
       const filteredSevaks = (data || []).filter((profile) => {
-        if (profile.email === 'bhemanibhemani@gmail.com') return false;
         if (adminIds.has(profile.id)) return false;
         return true;
       });
@@ -85,7 +84,6 @@ export const adminService = {
 
       // Filter out Super Admin and Admin profiles so only Sevaks are shown
       const sevakRequests = (data || []).filter((profile) => {
-        if (profile.email === 'bhemanibhemani@gmail.com') return false;
         if (adminIds.has(profile.id)) return false;
         return true;
       });
@@ -179,7 +177,6 @@ export const adminService = {
       if (error) throw error;
 
       const sevaksOnly = (allProfiles || []).filter((p) => {
-        if (p.email === 'bhemanibhemani@gmail.com') return false;
         if (adminIds.has(p.id)) return false;
         return true;
       });
@@ -222,7 +219,6 @@ export const adminService = {
       if (error) throw error;
 
       let list = (data || []).filter((p) => {
-        if (p.email === 'bhemanibhemani@gmail.com') return false;
         if (adminIds.has(p.id)) return false;
         return true;
       });

@@ -92,22 +92,14 @@ export const LoginScreen = ({ navigation }) => {
       return;
     }
 
-    // Sevak Mode: Validates either 10-digit Phone or Email
+    // Sevak & Admin OTP Mode: Validates either 10-digit Phone or Email
     const parsed = validateIdentifier(email);
     if (!parsed) {
       setLocalError('Please enter a valid 10-digit mobile number or email address.');
       return;
     }
 
-    // Guard: If in Sevak OTP mode and entered Super Admin email
-    if (parsed.type === 'email' && parsed.value === 'bhemanibhemani@gmail.com') {
-      setLocalError(
-        'This email belongs to the Super Admin account. Please switch to "Administrator / Super Admin Login" below, or enter a correct Sevak mobile/email.'
-      );
-      return;
-    }
-
-    // Request Phone SMS or Email OTP for Sevaks
+    // Request Phone SMS or Email OTP (Admins & Sevaks)
     const success = await requestOtp(parsed.value);
     if (success) {
       navigation.navigate('OtpVerification', {

@@ -39,9 +39,7 @@ import { t } from '../../../core/localization/i18n';
 export const AdminRequestsScreen = ({ navigation }) => {
   const { profile: adminProfile, role } = useAuthStore();
   const { showAlert } = useAlertStore();
-  const isSuperAdmin =
-    role === ROLES.SUPER_ADMIN ||
-    adminProfile?.email === 'bhemanibhemani@gmail.com';
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
   const [requests, setRequests] = useState([]);
   const [activeFilter, setActiveFilter] = useState('PENDING'); // PENDING | ACTIVE | REJECTED | ALL
   const [searchQuery, setSearchQuery] = useState('');

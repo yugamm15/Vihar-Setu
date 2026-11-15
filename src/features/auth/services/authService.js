@@ -31,7 +31,7 @@ export const authService = {
     if (this.isPhoneNumber(raw)) {
       const fullPhone = this.formatPhone(raw);
 
-      // Guard: Check if phone is an Administrator / Super Admin account
+      // Guard: Check if phone is a Super Admin account (Super Admin must use password)
       try {
         const { data: profile } = await supabase
           .from('profiles')
@@ -41,15 +41,12 @@ export const authService = {
 
         if (profile) {
           const roleNames = (profile.user_roles || []).map((ur) => ur.roles?.name);
-          if (
-            roleNames.includes(ROLES.SUPER_ADMIN) ||
-            roleNames.includes(ROLES.ADMIN)
-          ) {
+          if (roleNames.includes(ROLES.SUPER_ADMIN)) {
             return {
               data: null,
               error: {
                 message:
-                  'This phone number is registered as an Administrator account. Please use "Administrator / Super Admin Login" with your password, or enter a correct Sevak mobile number.',
+                  'This phone number belongs to a Super Administrator account. Super Admin must log in using password. Please tap "Super Admin Password Login" below.',
               },
             };
           }
@@ -73,48 +70,28 @@ export const authService = {
 
     const email = raw.toLowerCase();
 
-    // 1. Guard: Check if email is an Administrator / Super Admin account
+    // 1. Guard: Check if email belongs to Super Admin (Super Admin must use password)
     try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, user_roles(roles(name))')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
       if (profile) {
         const roleNames = (profile.user_roles || []).map((ur) => ur.roles?.name);
-        if (
-          roleNames.includes(ROLES.SUPER_ADMIN) ||
-          roleNames.includes(ROLES.ADMIN) ||
-          email === 'bhemanibhemani@gmail.com'
-        ) {
+        if (roleNames.includes(ROLES.SUPER_ADMIN)) {
           return {
             data: null,
             error: {
               message:
-                'This email is registered as an Administrator account. Please use "Administrator / Super Admin Login" with your password, or enter a correct Sevak email address.',
+                'This email belongs to a Super Administrator account. Super Admin must log in using password. Please tap "Super Admin Password Login" below.',
             },
           };
         }
-      } else if (email === 'bhemanibhemani@gmail.com') {
-        return {
-          data: null,
-          error: {
-            message:
-              'This email is registered as an Administrator account. Please use "Administrator / Super Admin Login" with your password, or enter a correct Sevak email address.',
-          },
-        };
       }
     } catch (e) {
-      if (email === 'bhemanibhemani@gmail.com') {
-        return {
-          data: null,
-          error: {
-            message:
-              'This email is registered as an Administrator account. Please use "Administrator / Super Admin Login" with your password, or enter a correct Sevak email address.',
-          },
-        };
-      }
+      // Proceed
     }
 
     try {
