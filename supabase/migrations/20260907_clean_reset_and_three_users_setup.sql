@@ -75,29 +75,6 @@ BEGIN
         updated_at = NOW()
     WHERE id IN (admin_uid, sevak_uid);
 
-    -- Ensure auth.identities exists for password login
-    INSERT INTO auth.identities (
-        id,
-        user_id,
-        identity_data,
-        provider,
-        provider_id,
-        last_sign_in_at,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        super_admin_uid,
-        super_admin_uid,
-        format('{"sub":"%s","email":"%s"}', super_admin_uid, 'viharsetu@jinaarya.com')::jsonb,
-        'email',
-        super_admin_uid,
-        NOW(),
-        NOW(),
-        NOW()
-    )
-    ON CONFLICT (id) DO UPDATE SET updated_at = NOW();
-
     -- 4. Create / Ensure EXACTLY ONE Area allocated to 26bmiitmscit21@gmail.com
     INSERT INTO public.areas (name, city, state, admin_name, admin_phone, admin_email, is_active)
     VALUES (
