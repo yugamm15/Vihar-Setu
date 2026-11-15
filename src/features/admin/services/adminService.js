@@ -374,24 +374,65 @@ export const adminService = {
   },
 
   /**
-   * Create a new operational area/region (Super Admin)
+   * Create a new operational area/region with Compulsory Administrator Details (Super Admin)
    */
-  async createArea({ name, city = 'Surat', state = 'Gujarat' }) {
+  async createArea({ name, city = 'Surat', state = 'Gujarat', admin_name, admin_phone, admin_email }) {
     try {
-      const { data, error } = await supabase
+      // 1. Insert into areas table with compulsory admin details
+      const { data: area, error: areaErr } = await supabase
         .from('areas')
         .insert({
           name: name.trim(),
           city: city.trim(),
           state: state.trim(),
+          admin_name: (admin_name || '').trim(),
+          admin_phone: (admin_phone || '').trim(),
+          admin_email: (admin_email || '').trim().toLowerCase(),
           is_active: true,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (areaErr) throw areaErr;
+
+      // 2. If a profile with this email or phone exists, ensure ADMIN role and link to area
+      const cleanEmail = (admin_email || '').trim().toLowerCase();
+      const cleanPhone = (admin_phone || '').trim();
+
+      let profileQuery = supabase.from('profiles').select('id');
+      if (cleanEmail) {
+        profileQuery = profileQuery.eq('email', cleanEmail);
+      } else if (cleanPhone) {
+        profileQuery = profileQuery.eq('phone', cleanPhone);
+      }
+
+      const { data: matchedProfile } = await profileQuery.maybeSingle();
+
+      if (matchedProfile) {
+        // Ensure role is ADMIN in user_roles
+        const { data: adminRole } = await supabase
+          .from('roles')
+          .select('id')
+          .eq('name', 'ADMIN')
+          .maybeSingle();
+
+        if (adminRole) {
+          await supabase.from('user_roles').upsert({
+            user_id: matchedProfile.id,
+            role_id: adminRole.id,
+          });
+        }
+
+        // Link in administrators table
+        await supabase.from('administrators').upsert({
+          user_id: matchedProfile.id,
+          area_id: area.id,
+          is_active: true,
+        });
+      }
+
       this.notifyListeners();
-      return { data, error: null };
+      return { data: area, error: null };
     } catch (e) {
       console.warn('[AdminService] createArea error:', e);
       return { data: null, error: e };

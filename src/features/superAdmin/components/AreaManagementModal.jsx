@@ -28,9 +28,12 @@ export const AreaManagementModal = ({ visible, onClose }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // New Area form
+  // New Area form (with Compulsory Administrator)
   const [newAreaName, setNewAreaName] = useState('');
   const [newAreaCity, setNewAreaCity] = useState('Surat');
+  const [adminName, setAdminName] = useState('');
+  const [adminPhone, setAdminPhone] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -57,6 +60,9 @@ export const AreaManagementModal = ({ visible, onClose }) => {
       loadData();
       setShowAddForm(false);
       setNewAreaName('');
+      setAdminName('');
+      setAdminPhone('');
+      setAdminEmail('');
       setErrorMsg('');
       setSuccessMsg('');
     }
@@ -64,7 +70,15 @@ export const AreaManagementModal = ({ visible, onClose }) => {
 
   const handleCreateArea = async () => {
     if (!newAreaName.trim()) {
-      setErrorMsg('Please enter an area name (e.g. Adajan & Pal).');
+      setErrorMsg('Area / Sector Name is compulsory.');
+      return;
+    }
+    if (!adminName.trim()) {
+      setErrorMsg('Designated Area Administrator Name is compulsory.');
+      return;
+    }
+    if (!adminPhone.trim()) {
+      setErrorMsg('Admin Mobile Number is compulsory for emergency contact.');
       return;
     }
 
@@ -75,13 +89,19 @@ export const AreaManagementModal = ({ visible, onClose }) => {
       const { data, error } = await adminService.createArea({
         name: newAreaName.trim(),
         city: newAreaCity.trim() || 'Surat',
+        admin_name: adminName.trim(),
+        admin_phone: adminPhone.trim(),
+        admin_email: adminEmail.trim(),
       });
 
       if (error) {
         setErrorMsg('Failed to create area. It may already exist.');
       } else {
-        setSuccessMsg(`Area "${data.name}" added successfully.`);
+        setSuccessMsg(`Area "${data.name}" registered with Admin "${adminName.trim()}".`);
         setNewAreaName('');
+        setAdminName('');
+        setAdminPhone('');
+        setAdminEmail('');
         setShowAddForm(false);
         loadData();
       }
@@ -159,7 +179,9 @@ export const AreaManagementModal = ({ visible, onClose }) => {
             {/* Add Area Form */}
             {showAddForm && (
               <View style={[styles.addAreaCard, shadows.subtle]}>
-                <Text style={styles.formLabel}>Area / Sector Name</Text>
+                <Text style={styles.formSectionHeader}>Area Jurisdiction</Text>
+                
+                <Text style={styles.formLabel}>Area / Sector Name *</Text>
                 <TextInput
                   style={styles.input}
                   value={newAreaName}
@@ -168,12 +190,45 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                   placeholderTextColor={colors.gray500}
                 />
 
-                <Text style={styles.formLabel}>City</Text>
+                <Text style={styles.formLabel}>City *</Text>
                 <TextInput
                   style={styles.input}
                   value={newAreaCity}
                   onChangeText={setNewAreaCity}
                   placeholder="Surat"
+                  placeholderTextColor={colors.gray500}
+                />
+
+                <View style={styles.formDivider} />
+                <Text style={styles.formSectionHeader}>Designated Area Administrator (Compulsory)</Text>
+
+                <Text style={styles.formLabel}>Admin Full Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={adminName}
+                  onChangeText={setAdminName}
+                  placeholder="e.g. Vihar Administrator"
+                  placeholderTextColor={colors.gray500}
+                />
+
+                <Text style={styles.formLabel}>Admin Mobile Number *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={adminPhone}
+                  onChangeText={setAdminPhone}
+                  placeholder="e.g. 9876543210"
+                  keyboardType="phone-pad"
+                  placeholderTextColor={colors.gray500}
+                />
+
+                <Text style={styles.formLabel}>Admin Email Address (Optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={adminEmail}
+                  onChangeText={setAdminEmail}
+                  placeholder="e.g. admin@jinaarya.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                   placeholderTextColor={colors.gray500}
                 />
 
@@ -185,7 +240,7 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                   {isCreating ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
-                    <Text style={styles.submitAreaBtnText}>Save Area</Text>
+                    <Text style={styles.submitAreaBtnText}>Save Area & Assign Admin</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -201,6 +256,11 @@ export const AreaManagementModal = ({ visible, onClose }) => {
             ) : (
               areas.map((area) => {
                 const assignedAdmin = admins.find((a) => a.area_id === area.id);
+                const displayAdminName =
+                  area.admin_name || assignedAdmin?.profiles?.full_name || 'Designated Area Admin';
+                const displayAdminPhone = area.admin_phone || assignedAdmin?.profiles?.phone;
+                const displayAdminEmail = area.admin_email || assignedAdmin?.profiles?.email;
+
                 return (
                   <View key={area.id} style={[styles.areaCard, shadows.subtle]}>
                     <View style={styles.areaHeader}>
@@ -211,14 +271,23 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                     </View>
 
                     <View style={styles.assignedAdminRow}>
-                      <UserIcon size={14} color={colors.textSecondary} />
+                      <UserIcon size={14} color={colors.deepMaroon} />
                       <Text style={styles.assignedAdminText}>
                         Assigned Admin:{' '}
-                        <Text style={styles.adminHighlight}>
-                          {assignedAdmin?.profiles?.full_name || 'Unassigned (Super Admin Over-watch)'}
-                        </Text>
+                        <Text style={styles.adminHighlight}>{displayAdminName}</Text>
                       </Text>
                     </View>
+
+                    {(displayAdminPhone || displayAdminEmail) && (
+                      <View style={styles.adminContactRow}>
+                        {displayAdminPhone ? (
+                          <Text style={styles.adminContactText}>📞 {displayAdminPhone}</Text>
+                        ) : null}
+                        {displayAdminEmail ? (
+                          <Text style={styles.adminContactText}>✉️ {displayAdminEmail}</Text>
+                        ) : null}
+                      </View>
+                    )}
                   </View>
                 );
               })
@@ -365,6 +434,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
   },
+  formSectionHeader: {
+    fontSize: 12,
+    fontFamily: typography.semiBold,
+    color: colors.deepMaroon,
+    marginBottom: spacing.xs,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  formDivider: {
+    height: 1,
+    backgroundColor: colors.surfaceBorder,
+    marginVertical: spacing.sm,
+  },
   formLabel: {
     fontSize: 11,
     fontFamily: typography.medium,
@@ -430,7 +513,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 2,
+    marginTop: 4,
   },
   assignedAdminText: {
     fontSize: 12,
@@ -439,7 +522,19 @@ const styles = StyleSheet.create({
   },
   adminHighlight: {
     color: colors.textPrimary,
-    fontFamily: typography.medium,
+    fontFamily: typography.semiBold,
+  },
+  adminContactRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 4,
+    paddingLeft: 20,
+  },
+  adminContactText: {
+    fontSize: 11,
+    fontFamily: typography.regular,
+    color: colors.textSecondary,
   },
   emptyCard: {
     padding: spacing.lg,

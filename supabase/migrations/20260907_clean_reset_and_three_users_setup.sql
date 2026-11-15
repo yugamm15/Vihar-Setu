@@ -36,14 +36,21 @@ INSERT INTO public.roles (name, description) VALUES
     ('SEVAK', 'Volunteer accompanying Jain Sadhvijis on Vihar')
 ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
 
--- STEP 5: Ensure Operational Areas exist in public.areas
-INSERT INTO public.areas (name, city, state, is_active) VALUES
-    ('Surat Central & Rander', 'Surat', 'Gujarat', true),
-    ('Adajan & Pal', 'Surat', 'Gujarat', true),
-    ('Vesu & Althan', 'Surat', 'Gujarat', true),
-    ('Katargam & Varachha', 'Surat', 'Gujarat', true),
-    ('Gopipura & Athwa', 'Surat', 'Gujarat', true)
-ON CONFLICT (name) DO NOTHING;
+-- STEP 5: Ensure public.areas has designated Administrator columns and seed areas
+ALTER TABLE public.areas ADD COLUMN IF NOT EXISTS admin_name TEXT DEFAULT 'Vihar Administrator';
+ALTER TABLE public.areas ADD COLUMN IF NOT EXISTS admin_phone TEXT DEFAULT '+919876543210';
+ALTER TABLE public.areas ADD COLUMN IF NOT EXISTS admin_email TEXT DEFAULT '26bmiitmscit21@gmail.com';
+
+INSERT INTO public.areas (name, city, state, admin_name, admin_phone, admin_email, is_active) VALUES
+    ('Surat Central & Rander', 'Surat', 'Gujarat', 'Vihar Administrator', '+919876543210', '26bmiitmscit21@gmail.com', true),
+    ('Adajan & Pal',           'Surat', 'Gujarat', 'Vihar Administrator', '+919876543210', '26bmiitmscit21@gmail.com', true),
+    ('Vesu & Althan',          'Surat', 'Gujarat', 'Vihar Administrator', '+919876543210', '26bmiitmscit21@gmail.com', true),
+    ('Katargam & Varachha',    'Surat', 'Gujarat', 'Vihar Administrator', '+919876543210', '26bmiitmscit21@gmail.com', true),
+    ('Gopipura & Athwa',       'Surat', 'Gujarat', 'Vihar Administrator', '+919876543210', '26bmiitmscit21@gmail.com', true)
+ON CONFLICT (name) DO UPDATE SET
+    admin_name  = EXCLUDED.admin_name,
+    admin_phone = EXCLUDED.admin_phone,
+    admin_email = EXCLUDED.admin_email;
 
 -- STEP 6: Bootstrap the 3 User Accounts
 DO $$
