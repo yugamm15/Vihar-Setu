@@ -26,6 +26,6 @@ const styles = StyleSheet.create({
   tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: borderRadius.md, backgroundColor: colors.softCream, marginRight: spacing.sm },
   activeTab: { backgroundColor: colors.deepMaroon },
   label: { ...typography.caption, color: colors.textSecondary, fontWeight: '700' },
-  activeLabel: { color: colors.warmIvory },
+  activeLabel: { color: colors.warmIvory, fontWeight: '800' },
 });
 

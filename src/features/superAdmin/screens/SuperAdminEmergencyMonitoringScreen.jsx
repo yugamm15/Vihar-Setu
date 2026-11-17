@@ -36,7 +36,17 @@ export const SuperAdminEmergencyMonitoringScreen = ({ navigation }) => {
         <View style={styles.filters}>
           <Text style={styles.filterLabel}>{t('super_admin.emergency_operations.status_filter')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {statuses.map((status) => <TouchableOpacity key={status} style={[styles.filterChip, filters.status === status && styles.selectedChip]} onPress={() => setFilters((current) => ({ ...current, status }))}><Text style={styles.filterText}>{status}</Text></TouchableOpacity>)}
+            {statuses.map((status) => (
+              <TouchableOpacity
+                key={status}
+                style={[styles.filterChip, filters.status === status && styles.selectedChip]}
+                onPress={() => setFilters((current) => ({ ...current, status }))}
+              >
+                <Text style={[styles.filterText, filters.status === status && styles.selectedFilterText]}>
+                  {status}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
           <TextInput value={filters.triggerType === 'ALL' ? '' : filters.triggerType} onChangeText={(triggerType) => setFilters((current) => ({ ...current, triggerType: triggerType || 'ALL' }))} placeholder={t('super_admin.emergency_operations.type_filter')} placeholderTextColor={colors.textMuted} style={styles.input} />
           <TextInput value={filters.severity === 'ALL' ? '' : filters.severity} onChangeText={(severity) => setFilters((current) => ({ ...current, severity: severity || 'ALL' }))} placeholder={t('super_admin.emergency_operations.severity_filter')} placeholderTextColor={colors.textMuted} style={styles.input} />
@@ -60,6 +70,24 @@ export const SuperAdminEmergencyMonitoringScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.warmIvory }, content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  filters: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md }, filterLabel: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.xs }, filterChip: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, marginRight: spacing.xs }, selectedChip: { backgroundColor: colors.deepMaroon }, filterText: { ...typography.caption, color: colors.textPrimary }, input: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, padding: spacing.sm, marginTop: spacing.sm, color: colors.textPrimary }, dateRow: { flexDirection: 'row', gap: spacing.sm }, dateInput: { flex: 1 }, card: { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm }, cardHeader: { flexDirection: 'row', justifyContent: 'space-between' }, id: { ...typography.caption, color: colors.textMuted }, status: { ...typography.caption, color: colors.deepMaroon, fontWeight: '800' }, severity: { ...typography.h4, color: colors.statusEmergency, marginVertical: spacing.xs }, detail: { ...typography.caption, color: colors.textSecondary, marginTop: 2 }, error: { ...typography.caption, color: colors.statusEmergency, marginBottom: spacing.md }, empty: { ...typography.bodySmall, color: colors.textSecondary, textAlign: 'center', padding: spacing.xxxl }, state: { padding: spacing.xxxl, alignItems: 'center' },
+  container: { flex: 1, backgroundColor: colors.warmIvory },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  filters: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md },
+  filterLabel: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.xs },
+  filterChip: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, marginRight: spacing.xs },
+  selectedChip: { backgroundColor: colors.deepMaroon, borderColor: colors.deepMaroon },
+  filterText: { ...typography.caption, color: colors.textPrimary },
+  selectedFilterText: { color: colors.warmIvory, fontWeight: '800' },
+  input: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, padding: spacing.sm, marginTop: spacing.sm, color: colors.textPrimary },
+  dateRow: { flexDirection: 'row', gap: spacing.sm },
+  dateInput: { flex: 1 },
+  card: { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+  id: { ...typography.caption, color: colors.textMuted },
+  status: { ...typography.caption, color: colors.deepMaroon, fontWeight: '800' },
+  severity: { ...typography.h4, color: colors.statusEmergency, marginVertical: spacing.xs },
+  detail: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  error: { ...typography.caption, color: colors.statusEmergency, marginBottom: spacing.md },
+  empty: { ...typography.bodySmall, color: colors.textSecondary, textAlign: 'center', padding: spacing.xxxl },
+  state: { padding: spacing.xxxl, alignItems: 'center' },
 });

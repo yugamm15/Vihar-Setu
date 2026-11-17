@@ -467,7 +467,7 @@ export const AdminLiveMap = ({
                   fontSize={isSelected ? '13' : '11'}
                   fontWeight="bold"
                 >
-                  {isEmergency ? '⚡' : (m.sevak_name || 'V').trim().charAt(0).toUpperCase()}
+                  {isEmergency ? '!' : ((m.sevak_name || 'V').trim().charAt(0) || 'V').toUpperCase()}
                 </SvgText>
               </G>
             );
@@ -483,9 +483,7 @@ export const AdminLiveMap = ({
           const isSelected = m.vihar_id === selectedViharId;
           const radius = isSelected ? 20 : 16;
           const firstName = (m.sevak_name || 'Sevak').trim().split(' ')[0];
-          const badgeWidth = 120;
-          const badgeLeft = m.screenX - badgeWidth / 2;
-          const badgeTop = m.screenY + radius + 5;
+          const badgeTop = m.screenY + radius + 6;
 
           return (
             <TouchableOpacity
@@ -495,7 +493,7 @@ export const AdminLiveMap = ({
               style={[
                 styles.nativeCalloutBadge,
                 {
-                  left: badgeLeft,
+                  left: m.screenX - 68,
                   top: badgeTop,
                   borderColor: isSelected ? colors.saffronDark : colors.cardBorder,
                   borderWidth: isSelected ? 1.5 : 1,
@@ -650,37 +648,38 @@ const styles = StyleSheet.create({
   },
   nativeCalloutBadge: {
     position: 'absolute',
-    width: 120,
-    height: 24,
+    minWidth: 136,
+    maxWidth: 165,
+    height: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 6,
+    borderRadius: 13,
+    paddingHorizontal: 8,
     zIndex: 15,
   },
   calloutStatusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginRight: 4,
+    marginRight: 5,
   },
   calloutNameText: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.deepMaroon,
-    marginRight: 4,
-    maxWidth: 52,
+    marginRight: 6,
+    maxWidth: 68,
   },
   calloutTagPill: {
-    paddingHorizontal: 4,
-    paddingVertical: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
     borderRadius: 4,
   },
   calloutTagText: {
     fontSize: 8.5,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
 });

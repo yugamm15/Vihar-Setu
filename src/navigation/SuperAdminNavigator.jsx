@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SuperAdminDashboardScreen } from '../features/superAdmin/screens/SuperAdminDashboardScreen';
+import { SuperAdminAreaManagementScreen } from '../features/superAdmin/screens/SuperAdminAreaManagementScreen';
 import { SuperAdminUsersScreen } from '../features/superAdmin/screens/SuperAdminUsersScreen';
 import { SuperAdminUserDetailsScreen } from '../features/superAdmin/screens/SuperAdminUserDetailsScreen';
 import { SuperAdminAdministratorsScreen } from '../features/superAdmin/screens/SuperAdminAdministratorsScreen';
@@ -47,6 +48,7 @@ import {
   AlertsBellIcon,
   RequestsIcon,
   MenuIcon,
+  MapPinIcon,
 } from '../shared/components/CustomSvgIcons';
 import { adminService } from '../features/admin/services/adminService';
 import { superAdminUserService } from '../features/superAdmin/services/superAdminUserService';
@@ -105,11 +107,19 @@ const SuperAdminTabs = () => {
         tabBarLabelStyle: {
           ...typography.caption,
           fontWeight: '700',
-          fontSize: 11,
+          fontSize: 10,
           marginTop: 2,
         },
       }}
     >
+      <Tab.Screen
+        name="AreaTab"
+        component={SuperAdminAreaManagementScreen}
+        options={{
+          tabBarLabel: 'Areas',
+          tabBarIcon: ({ color }) => <MapPinIcon size={22} color={color} />,
+        }}
+      />
       <Tab.Screen
         name="SuperDashboardTab"
         component={SuperAdminDashboardScreen}
@@ -161,14 +171,6 @@ const SuperAdminTabs = () => {
           tabBarIcon: ({ color }) => <RequestsIcon size={22} color={color} />,
         }}
       />
-      <Tab.Screen
-        name="MoreTab"
-        component={AdminMoreScreen}
-        options={{
-          tabBarLabel: 'Settings',
-          tabBarIcon: ({ color }) => <MenuIcon size={22} color={color} />,
-        }}
-      />
     </Tab.Navigator>
   );
 };
@@ -176,6 +178,7 @@ const SuperAdminTabs = () => {
 export const SuperAdminNavigator = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="SuperAdminTabs" component={SuperAdminTabs} />
+    <Stack.Screen name="SuperAdminAreaManagement" component={SuperAdminAreaManagementScreen} />
     <Stack.Screen name="SuperAdminUserDetails" component={SuperAdminUserDetailsScreen} />
     <Stack.Screen name="SuperAdminAdministrators" component={SuperAdminAdministratorsScreen} />
     <Stack.Screen name="SuperAdminAdministratorDetails" component={SuperAdminAdministratorDetailsScreen} />

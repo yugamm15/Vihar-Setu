@@ -9,6 +9,7 @@ export const useAuthStore = create((set, get) => ({
   session: null,
   profile: null,
   role: null, // 'SEVAK' | 'ADMIN' | 'SUPER_ADMIN'
+  availableRoles: [], // ['SEVAK', 'ADMIN']
   status: 'PENDING', // 'PENDING' | 'ACTIVE' | 'REJECTED' | 'DISABLED'
   language: 'gu',
   isAuthenticated: false,
@@ -28,8 +29,9 @@ export const useAuthStore = create((set, get) => ({
       const savedRole = await storage.getItem('auth_role');
 
       if (savedUser && savedRole) {
-        const { profile: freshProfile, role: freshRole, error } =
+        const { profile: freshProfile, role: freshRole, availableRoles = [], error } =
           await authService.fetchUserProfileAndRole(savedUser.id);
+        const rolesList = availableRoles.length ? availableRoles : [freshRole].filter(Boolean);
         const isValidRole = Object.values(ROLES).includes(freshRole);
         const isAllowedStatus =
           freshRole === ROLES.SEVAK
@@ -57,12 +59,14 @@ export const useAuthStore = create((set, get) => ({
                 : 'Your session is no longer authorized.',
           });
         } else {
+          const activeRole = rolesList.includes(savedRole) ? savedRole : freshRole;
           await storage.setItem('auth_profile', freshProfile);
-          await storage.setItem('auth_role', freshRole);
+          await storage.setItem('auth_role', activeRole);
           set({
             user: savedUser,
             profile: freshProfile,
-            role: freshRole,
+            role: activeRole,
+            availableRoles: rolesList,
             status: freshProfile.status || 'PENDING',
             language: savedLang,
             isAuthenticated: true,
@@ -105,7 +109,7 @@ export const useAuthStore = create((set, get) => ({
       return false;
     }
 
-    const { user, profile, role, session } = data;
+    const { user, profile, role, session, availableRoles = [] } = data;
     if (!user || !profile || !Object.values(ROLES).includes(role)) {
       set({
         isLoading: false,
@@ -115,6 +119,7 @@ export const useAuthStore = create((set, get) => ({
     }
     const resolvedRole = role;
     const resolvedStatus = profile.status;
+    const rolesList = availableRoles.length ? availableRoles : [role];
 
     await storage.setItem('auth_user', user);
     await storage.setItem('auth_profile', profile);
@@ -124,6 +129,7 @@ export const useAuthStore = create((set, get) => ({
       user,
       profile,
       role: resolvedRole,
+      availableRoles: rolesList,
       status: resolvedStatus,
       session,
       isAuthenticated: true,
@@ -164,7 +170,7 @@ export const useAuthStore = create((set, get) => ({
       return { success: false };
     }
 
-    const { user, profile, role, session } = data;
+    const { user, profile, role, session, availableRoles = [] } = data;
     if (!user || !profile || !Object.values(ROLES).includes(role)) {
       set({
         isLoading: false,
@@ -175,6 +181,7 @@ export const useAuthStore = create((set, get) => ({
 
     const resolvedRole = role;
     const resolvedStatus = profile?.status || 'PENDING';
+    const rolesList = availableRoles.length ? availableRoles : [role];
 
     // Save to persistent storage
     await storage.setItem('auth_user', user);
@@ -185,6 +192,7 @@ export const useAuthStore = create((set, get) => ({
       user,
       profile,
       role: resolvedRole,
+      availableRoles: rolesList,
       status: resolvedStatus,
       session,
       isAuthenticated: true,
@@ -279,6 +287,20 @@ export const useAuthStore = create((set, get) => ({
   switchRole: async (targetRole) => {
     await storage.setItem('auth_role', targetRole);
     set({ role: targetRole });
+  },
+
+  /**
+   * Dynamically refresh assigned roles from database
+   */
+  refreshRoles: async () => {
+    const { user } = get();
+    if (!user?.id) return;
+    try {
+      const { availableRoles = [], profile } = await authService.fetchUserProfileAndRole(user.id);
+      if (availableRoles.length) {
+        set({ availableRoles, profile: profile || get().profile });
+      }
+    } catch {}
   },
 
   /**

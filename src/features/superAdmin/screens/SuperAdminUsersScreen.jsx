@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   filterChip: { borderRadius: borderRadius.md, backgroundColor: colors.softCream, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginRight: spacing.sm },
   activeFilterChip: { backgroundColor: colors.deepMaroon },
   filterText: { ...typography.caption, color: colors.textSecondary, fontWeight: '700' },
-  activeFilterText: { color: colors.warmIvory },
+  activeFilterText: { color: colors.warmIvory, fontWeight: '800' },
   filterInputs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   filterInput: { flex: 1, backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, color: colors.textPrimary, ...typography.caption },
   total: { ...typography.caption, color: colors.textSecondary, marginVertical: spacing.sm },

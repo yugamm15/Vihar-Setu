@@ -47,7 +47,6 @@ export const SuperAdminMonitoringScreen = ({ navigation }) => {
             <View style={styles.actions}>
               <Action text={t('super_admin.monitoring.emergencies')} onPress={() => navigation.navigate('SuperAdminEmergencyMonitoring')} />
               <Action text={t('super_admin.monitoring.devices')} onPress={() => navigation.navigate('SuperAdminDeviceMonitoring')} />
-              <Action text={t('super_admin.monitoring.system_health')} onPress={() => navigation.navigate('SuperAdminSystemHealth')} />
             </View>
             <Section title={t('super_admin.monitoring.route_events')}>
               <Records records={data.recentRouteEvents} empty={t('super_admin.monitoring.no_route_events')} render={(item) => `${item.event_type} · ${item.severity} · ${formatDate(item.created_at)}`} />

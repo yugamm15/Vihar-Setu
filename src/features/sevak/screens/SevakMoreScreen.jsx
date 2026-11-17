@@ -35,7 +35,7 @@ import { SimulationScreen } from '../../simulation/screens/SimulationScreen';
 import { ROLES } from '../../../core/constants/roles';
 
 export const SevakMoreScreen = ({ navigation }) => {
-  const { profile, logout, changeLanguage, language, switchRole } = useAuthStore();
+  const { profile, logout, changeLanguage, language, switchRole, availableRoles = [], refreshRoles } = useAuthStore();
   const { showAlert } = useAlertStore();
 
   const [activeModal, setActiveModal] = useState(null); // 'LANGUAGE' | 'ALARM' | 'GPS' | 'GUIDELINES' | 'HELP' | 'ABOUT'
@@ -44,7 +44,8 @@ export const SevakMoreScreen = ({ navigation }) => {
 
   useEffect(() => {
     setCurrentLang(language || getAppLanguage());
-  }, [language]);
+    refreshRoles?.();
+  }, [language, refreshRoles]);
 
   // Alarm & Settings state
   const [alarm30MinEnabled, setAlarm30MinEnabled] = useState(true);
@@ -250,39 +251,43 @@ export const SevakMoreScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Section 4: Role Switcher for Admin Live Demonstration */}
-        <Text style={styles.sectionHeader}>Role & System Administration</Text>
-        <View style={[styles.menuCard, shadows.card]}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              showAlert({
-                type: 'CONFIRM',
-                title: 'Open Administrator Console',
-                message: 'Switch to Administrator live monitoring radar and dashboard view?',
-                confirmText: 'Switch to Admin',
-                cancelText: 'Cancel',
-                onConfirm: async () => {
-                  await switchRole(ROLES.ADMIN);
-                },
-              });
-            }}
-            style={styles.menuItem}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#FBE9E7' }]}>
-              <NavigationIcon size={20} color={colors.deepMaroon} />
+        {/* Section 4: Role Switcher for Admin Live Demonstration / Dual-Role */}
+        {(availableRoles.includes(ROLES.ADMIN) || availableRoles.includes(ROLES.SUPER_ADMIN)) && (
+          <>
+            <Text style={styles.sectionHeader}>Role & System Administration</Text>
+            <View style={[styles.menuCard, shadows.card]}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  showAlert({
+                    type: 'CONFIRM',
+                    title: 'Open Administrator Console',
+                    message: 'Switch to Administrator live monitoring radar and dashboard view?',
+                    confirmText: 'Switch to Admin',
+                    cancelText: 'Cancel',
+                    onConfirm: async () => {
+                      await switchRole(ROLES.ADMIN);
+                    },
+                  });
+                }}
+                style={styles.menuItem}
+              >
+                <View style={[styles.iconCircle, { backgroundColor: '#FBE9E7' }]}>
+                  <NavigationIcon size={20} color={colors.deepMaroon} />
+                </View>
+                <View style={styles.menuTextContainer}>
+                  <Text style={[styles.menuTitle, { color: colors.deepMaroon, fontWeight: '800' }]}>
+                    Administrator Console & Live Radar
+                  </Text>
+                  <Text style={styles.menuSub}>
+                    Switch role to Administrator • Real Map & Dashboard
+                  </Text>
+                </View>
+                <Text style={styles.menuChevron}>›</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.menuTextContainer}>
-              <Text style={[styles.menuTitle, { color: colors.deepMaroon, fontWeight: '800' }]}>
-                Administrator Console & Live Radar
-              </Text>
-              <Text style={styles.menuSub}>
-                Switch role to Administrator • Real Map & Dashboard
-              </Text>
-            </View>
-            <Text style={styles.menuChevron}>›</Text>
-          </TouchableOpacity>
-        </View>
+          </>
+        )}
 
         {/* Logout Button */}
         <TouchableOpacity

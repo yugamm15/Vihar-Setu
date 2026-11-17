@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AppHeader } from '../../../shared/components/AppHeader';
 import { colors } from '../../../core/theme/colors';
@@ -12,7 +12,7 @@ const priorities = ['NORMAL', 'IMPORTANT', 'URGENT'];
 const audiences = ['ALL_USERS', 'ALL_SEVIKAS', 'ALL_ADMINISTRATORS', 'SELECTED_AREA', 'SELECTED_VIHAR'];
 const types = ['ALL', 'EMERGENCY', 'DEVIATION', 'SYSTEM', 'HANDOVER', 'HOLD', 'APPROVAL', 'POLICE_CALL'];
 const BLANK_FORM = { title: '', description: '', category: 'GENERAL', priority: 'NORMAL', targetAudience: 'ALL_USERS', targetAreaId: '', targetViharId: '', expiresAt: '' };
-const fmtDate = (value) => value ? new Date(value).toLocaleString('en-IN') : 'â€”';
+const fmtDate = (value) => value ? new Date(value).toLocaleString('en-IN') : '—';
 
 export const SuperAdminCommunicationScreen = ({ navigation }) => {
   const [overview, setOverview] = useState(null);
@@ -57,7 +57,9 @@ export const SuperAdminCommunicationScreen = ({ navigation }) => {
       loadNotifications(0),
     ]);
     setOverview(summary);
-    setError(announcementError?.message || notifError?.message || null);
+    const activeErr = (announcementError && announcementError.code !== 'PGRST205' ? announcementError.message : null)
+      || (notifError && notifError.code !== 'PGRST205' ? notifError.message : null);
+    setError(activeErr);
     setLoading(false);
   }, [loadAnnouncements, loadNotifications]);
 
@@ -93,7 +95,7 @@ export const SuperAdminCommunicationScreen = ({ navigation }) => {
     if (result.error) setError(result.error.message); else load();
   });
 
-  const metric = (key) => overview?.data?.[key] ?? 'â€”';
+  const metric = (key) => overview?.data?.[key] ?? '—';
 
   const priorityColor = (p) => p === 'URGENT' ? colors.statusEmergency : p === 'IMPORTANT' ? colors.saffron : colors.textSecondary;
 
@@ -199,7 +201,7 @@ export const SuperAdminCommunicationScreen = ({ navigation }) => {
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={[styles.priorityBadge, { color: priorityColor(item.priority) }]}>{item.priority}</Text>
                 </View>
-                <Text style={styles.detail}>{item.status} Â· {item.category} Â· {item.target_audience}</Text>
+                <Text style={styles.detail}>{item.status} · {item.category} · {item.target_audience}</Text>
                 <Text style={styles.detail}>{fmtDate(item.published_at || item.created_at)}</Text>
                 {item.status === 'DRAFT' ? (
                   <View style={styles.actionRow}>
@@ -266,8 +268,8 @@ export const SuperAdminCommunicationScreen = ({ navigation }) => {
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 {!item.is_read ? <View style={styles.unreadDot} /> : null}
               </View>
-              <Text style={styles.detail}>{item.type} Â· {item.severity}</Text>
-              <Text style={styles.detail}>{item.profiles?.full_name || item.user_id} Â· {fmtDate(item.created_at)}</Text>
+              <Text style={styles.detail}>{item.type} · {item.severity}</Text>
+              <Text style={styles.detail}>{item.profiles?.full_name || item.user_id} · {fmtDate(item.created_at)}</Text>
             </TouchableOpacity>
           ))}
           {notifLoading ? (
@@ -324,7 +326,7 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   chipSelected: { backgroundColor: colors.deepMaroon, borderColor: colors.deepMaroon },
   chipText: { ...typography.caption, color: colors.textSecondary },
-  chipTextSelected: { color: colors.warmIvory, fontWeight: '700' },
+  chipTextSelected: { color: colors.warmIvory, fontWeight: '800' },
   primaryButton: {
     backgroundColor: colors.deepMaroon, borderRadius: borderRadius.sm,
     padding: spacing.md, alignItems: 'center',

@@ -241,8 +241,9 @@ export const authService = {
       if (userRolesError) throw userRolesError;
 
       let role = null;
+      let roleNames = [];
       if (userRoles && userRoles.length > 0) {
-        const roleNames = userRoles.map((ur) => ur.roles?.name);
+        roleNames = userRoles.map((ur) => ur.roles?.name).filter(Boolean);
         if (roleNames.includes(ROLES.SUPER_ADMIN)) {
           role = ROLES.SUPER_ADMIN;
         } else if (roleNames.includes(ROLES.ADMIN)) {
@@ -256,6 +257,7 @@ export const authService = {
         return {
           profile: null,
           role: null,
+          availableRoles: [],
           error: new Error('Authenticated account profile was not found.'),
         };
       }
@@ -264,11 +266,12 @@ export const authService = {
         return {
           profile,
           role: null,
+          availableRoles: [],
           error: new Error('Authenticated account has no assigned database role.'),
         };
       }
 
-      return { profile, role, error: null };
+      return { profile, role, availableRoles: roleNames, error: null };
     } catch (e) {
       console.warn('[AuthService] Error fetching profile/role:', e);
       return { profile: null, role: null, error: e };

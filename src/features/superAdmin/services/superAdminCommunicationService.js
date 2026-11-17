@@ -31,7 +31,9 @@ export const superAdminCommunicationService = {
         activeAnnouncements: requests[3].count,
         recentAnnouncements: requests[4].data,
       },
-      errors: requests.filter((request) => request.error).map((request) => request.error),
+      errors: requests
+        .filter((request) => request.error && request.error.code !== 'PGRST205')
+        .map((request) => request.error),
     };
   },
 

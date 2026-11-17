@@ -37,7 +37,6 @@ import {
   NavigationIcon,
   MapPinIcon,
 } from '../../../shared/components/CustomSvgIcons';
-import { AreaManagementModal } from '../../superAdmin/components/AreaManagementModal';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useAlertStore } from '../../../shared/hooks/useAlertStore';
 import { adminService } from '../services/adminService';
@@ -48,7 +47,6 @@ export const AdminMoreScreen = () => {
   const { showAlert } = useAlertStore();
 
   const [activeModal, setActiveModal] = useState(null); // 'REPORTS' | 'USERS' | 'LOGS' | 'SETTINGS' | 'SECURITY' | 'HELP' | 'ABOUT'
-  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
 
   // Reports state
   const [reportsData, setReportsData] = useState({
@@ -152,8 +150,8 @@ export const AdminMoreScreen = () => {
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
-        title={isSuperAdmin ? 'Super Admin Console' : 'Admin Console'}
-        subtitle={isSuperAdmin ? 'Control & System Operations' : 'Regional Administration & Operations'}
+        title="Admin Console"
+        subtitle="Regional Administration & Operations"
         showLogo
       />
 
@@ -228,30 +226,6 @@ export const AdminMoreScreen = () => {
             </View>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
-
-          {isSuperAdmin && (
-            <>
-              <View style={styles.divider} />
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setIsAreaModalOpen(true)}
-                style={styles.menuItem}
-              >
-                <View style={[styles.menuIconCircle, { backgroundColor: '#FFF3E0' }]}>
-                  <MapPinIcon size={20} color={colors.saffronDark} />
-                </View>
-                <View style={styles.menuContent}>
-                  <Text style={[styles.menuTitle, { color: colors.deepMaroon, fontWeight: '800' }]}>
-                    Operational Area Management
-                  </Text>
-                  <Text style={styles.menuSub}>
-                    Manage regional sectors, jurisdictions & designated admins
-                  </Text>
-                </View>
-                <Text style={styles.menuArrow}>›</Text>
-              </TouchableOpacity>
-            </>
-          )}
         </View>
 
         {/* Section 2: Preferences & Security */}
@@ -793,13 +767,6 @@ export const AdminMoreScreen = () => {
           </View>
         </View>
       </Modal>
-
-      {/* Operational Area Management Modal */}
-      <AreaManagementModal
-        visible={isAreaModalOpen}
-        onClose={() => setIsAreaModalOpen(false)}
-        isSuperAdmin={isSuperAdmin}
-      />
     </View>
   );
 };

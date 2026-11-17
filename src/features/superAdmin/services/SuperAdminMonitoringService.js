@@ -32,10 +32,25 @@ export const superAdminMonitoringService = {
 
   async fetchOverview() {
     const sections = await Promise.all([
-      settled('registeredUsers', () => count(
-        'Registered users',
-        supabase.from('profiles').select('id', { count: 'exact', head: true })
-      )),
+      settled('registeredUsers', async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select(`
+            id,
+            status,
+            user_roles (
+              role
+            )
+          `);
+        if (error) throw error;
+        const validUsers = (data || []).filter(u => {
+          if (u.status === 'REJECTED') return false;
+          const roles = (u.user_roles || []).map(r => r.role);
+          if (roles.includes('SUPER_ADMIN')) return false;
+          return true;
+        });
+        return validUsers.length;
+      }),
       settled('activeVihars', () => count(
         'Active Vihars',
         supabase.from('vihars').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE')
@@ -60,10 +75,19 @@ export const superAdminMonitoringService = {
         'Recent handovers',
         supabase.from('vihar_handover').select('id, vihar_id, status, handover_location_name, handover_time').order('handover_time', { ascending: false }).limit(10)
       ).then((result) => result.data)),
-      settled('deviceStatuses', () => run(
-        'Device status',
-        supabase.from('device_status').select('id, user_id, network_status, last_heartbeat, battery_percentage, gps_enabled, app_state, updated_at').order('last_heartbeat', { ascending: false }).limit(25)
-      ).then((result) => result.data)),
+      settled('deviceStatuses', async () => {
+        try {
+          const { data, error } = await supabase
+            .from('device_status')
+            .select('id, user_id, network_status, last_heartbeat, battery_percentage, gps_enabled, app_state, updated_at')
+            .order('last_heartbeat', { ascending: false })
+            .limit(25);
+          if (error) return [];
+          return data || [];
+        } catch {
+          return [];
+        }
+      }),
       settled('recentActivity', () => run(
         'Recent system activity',
         supabase.from('audit_logs').select('id, action, entity, entity_id, created_at').order('created_at', { ascending: false }).limit(10)
@@ -119,16 +143,15 @@ export const superAdminMonitoringService = {
   async listDevices(page = 0) {
     try {
       const from = page * PAGE_SIZE;
-      const result = await run(
-        'Device status history',
-        supabase.from('device_status')
-          .select('id, user_id, vihar_id, battery_percentage, is_charging, network_status, network_type, gps_enabled, gps_accuracy_meters, app_state, last_heartbeat, created_at, updated_at', { count: 'exact' })
-          .order('last_heartbeat', { ascending: false })
-          .range(from, from + PAGE_SIZE - 1)
-      );
-      return { data: result.data, count: result.count || 0, error: null };
-    } catch (error) {
-      return { data: [], count: 0, error };
+      const { data, error, count } = await supabase
+        .from('device_status')
+        .select('id, user_id, vihar_id, battery_percentage, is_charging, network_status, network_type, gps_enabled, gps_accuracy_meters, app_state, last_heartbeat, created_at, updated_at', { count: 'exact' })
+        .order('last_heartbeat', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) return { data: [], count: 0, error: null };
+      return { data: data || [], count: count || 0, error: null };
+    } catch {
+      return { data: [], count: 0, error: null };
     }
   },
 

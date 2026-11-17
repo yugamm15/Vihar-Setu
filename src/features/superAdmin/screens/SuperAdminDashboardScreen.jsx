@@ -18,7 +18,19 @@ import { AreaManagementModal } from '../components/AreaManagementModal';
 import { superAdminDashboardService } from '../services/superAdminDashboardService';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useAlertStore } from '../../../shared/hooks/useAlertStore';
-import { SettingsGearIcon, LogoutIcon } from '../../../shared/components/CustomSvgIcons';
+import {
+  SettingsGearIcon,
+  LogoutIcon,
+  ShieldIcon,
+  UsersGroupIcon,
+  AlertsBellIcon,
+  NavigationIcon,
+  LiveRadarIcon,
+  ReportsChartIcon,
+  MapPinIcon,
+  UserIcon,
+  LogsFileIcon,
+} from '../../../shared/components/CustomSvgIcons';
 import { t } from '../../../core/localization/i18n';
 
 const formatDate = (value) => {
@@ -93,9 +105,88 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
   const organization = dashboard?.organization;
   const operations = dashboard?.operations;
   const safety = dashboard?.safety;
-  const quickLinks = [
-    ['Governance', 'governance'], ['Users', 'users'], ['Monitoring', 'monitoring'], ['Vihars', 'vihars'], ['Communication', 'communication'], ['Reports', 'reports'], ['Areas', 'areas'],
-    ['Administrators', 'administrators'], ['Permissions', 'permissions'], ['System Configuration', 'configuration'], ['Audit Logs', 'audit'],
+  const superAdminModules = [
+    {
+      id: 'governance',
+      labelKey: 'governance',
+      desc: 'Policy & security',
+      Icon: ShieldIcon,
+      color: colors.deepMaroon,
+      bg: '#FFF5F5',
+      onPress: () => navigation.navigate('SuperAdminGovernance'),
+    },
+    {
+      id: 'users',
+      labelKey: 'users',
+      desc: 'Directory & approvals',
+      Icon: UsersGroupIcon,
+      color: colors.statusSafe,
+      bg: '#E8F5E9',
+      onPress: () => navigation.navigate('UsersTab'),
+    },
+    {
+      id: 'monitoring',
+      labelKey: 'monitoring',
+      desc: 'Live safety & telemetry',
+      Icon: AlertsBellIcon,
+      color: colors.statusEmergency,
+      bg: '#FFEBEE',
+      onPress: () => navigation.navigate('SuperAdminMonitoring'),
+    },
+    {
+      id: 'vihars',
+      labelKey: 'vihars',
+      desc: 'Operations & tracking',
+      Icon: NavigationIcon,
+      color: colors.saffronDark,
+      bg: '#FFF8E7',
+      onPress: () => navigation.navigate('SuperAdminViharManagement'),
+    },
+    {
+      id: 'communication',
+      labelKey: 'communication',
+      desc: 'Broadcasts & alerts',
+      Icon: LiveRadarIcon,
+      color: '#1976D2',
+      bg: '#E3F2FD',
+      onPress: () => navigation.navigate('SuperAdminCommunication'),
+    },
+    {
+      id: 'reports',
+      labelKey: 'reports',
+      desc: 'Metrics & analytics',
+      Icon: ReportsChartIcon,
+      color: '#7B1FA2',
+      bg: '#F3E5F5',
+      onPress: () => navigation.navigate('SuperAdminReports'),
+    },
+    {
+      id: 'areas',
+      labelKey: 'areas',
+      desc: 'Jurisdictions & sectors',
+      Icon: MapPinIcon,
+      color: colors.saffronDark,
+      bg: '#FFF3E0',
+      onPress: () => navigation.navigate('AreaTab'),
+    },
+    {
+      id: 'administrators',
+      labelKey: 'administrators',
+      desc: 'Regional officers',
+      Icon: UserIcon,
+      color: colors.deepMaroon,
+      bg: '#FBE9E7',
+      onPress: () => navigation.navigate('SuperAdminAdministrators'),
+    },
+    {
+      id: 'audit',
+      labelKey: 'audit',
+      desc: 'Security audit trail',
+      Icon: LogsFileIcon,
+      color: '#455A64',
+      bg: '#ECEFF1',
+      onPress: () => navigation.navigate('SuperAdminAuditLogs'),
+    },
   ];
 
   return (
@@ -192,28 +283,30 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
 
             <Section title={t('super_admin.modules')}>
               <View style={styles.quickGrid}>
-                {quickLinks.map(([moduleName, labelKey]) => (
-                  <TouchableOpacity
-                    key={moduleName}
-                    style={[styles.quickLink, shadows.subtle]}
-                    onPress={() => {
-                      if (labelKey === 'governance') navigation.navigate('SuperAdminGovernance');
-                      else if (labelKey === 'areas') setIsAreaModalOpen(true);
-                      else if (labelKey === 'users') navigation.navigate('UsersTab');
-                      else if (labelKey === 'administrators') navigation.navigate('SuperAdminAdministrators');
-                      else if (labelKey === 'monitoring') navigation.navigate('SuperAdminMonitoring');
-                      else if (labelKey === 'vihars') navigation.navigate('SuperAdminViharManagement');
-                      else if (labelKey === 'communication') navigation.navigate('SuperAdminCommunication');
-                      else if (labelKey === 'reports') navigation.navigate('SuperAdminReports');
-                      else if (labelKey === 'configuration') navigation.navigate('SuperAdminConfiguration');
-                      else if (labelKey === 'audit') navigation.navigate('SuperAdminAuditLogs');
-                      else showUnavailable(moduleName);
-                    }}
-                  >
-                    <Text style={styles.quickLinkText}>{t(`super_admin.labels.${labelKey}`)}</Text>
-                    <Text style={styles.quickLinkStatus}>{['governance', 'areas', 'monitoring', 'vihars', 'communication', 'reports', 'configuration', 'audit'].includes(labelKey) ? t('super_admin.labels.open') : t('super_admin.labels.coming_soon')}</Text>
-                  </TouchableOpacity>
-                ))}
+                {superAdminModules.map((item) => {
+                  const { Icon } = item;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.quickLink, shadows.subtle]}
+                      onPress={item.onPress}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.quickLinkHeader}>
+                        <View style={[styles.moduleIconCircle, { backgroundColor: item.bg }]}>
+                          <Icon size={18} color={item.color} />
+                        </View>
+                        <Text style={styles.quickLinkArrow}>›</Text>
+                      </View>
+                      <Text style={styles.quickLinkText} numberOfLines={1}>
+                        {t(`super_admin.labels.${item.labelKey}`)}
+                      </Text>
+                      <Text style={styles.quickLinkDesc} numberOfLines={1}>
+                        {item.desc}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </Section>
           </>
@@ -263,7 +356,43 @@ const styles = StyleSheet.create({
   activityDetail: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   activityDate: { ...typography.caption, color: colors.textSecondary, marginLeft: spacing.sm },
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  quickLink: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.cardBorder, padding: spacing.md, width: '48%', minHeight: 64 },
-  quickLinkText: { ...typography.bodySmall, color: colors.deepMaroon, fontWeight: '700' },
-  quickLinkStatus: { ...typography.caption, color: colors.textSecondary, marginTop: 5 },
+  quickLink: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.md,
+    width: '48%',
+    minHeight: 100,
+    justifyContent: 'space-between',
+  },
+  quickLinkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  moduleIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLinkArrow: {
+    fontSize: 18,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  quickLinkText: {
+    ...typography.bodySmall,
+    color: colors.deepMaroon,
+    fontWeight: '800',
+  },
+  quickLinkDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 10,
+    marginTop: 2,
+  },
 });
