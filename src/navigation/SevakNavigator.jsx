@@ -16,11 +16,13 @@ import {
 } from '../shared/components/CustomSvgIcons';
 import { colors } from '../core/theme/colors';
 import { typography } from '../core/theme/typography';
+import { useAuthStore } from '../features/auth/hooks/useAuthStore';
 
 const Tab = createBottomTabNavigator();
 
 export const SevakNavigator = () => {
   const insets = useSafeAreaInsets();
+  const language = useAuthStore((state) => state.language);
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 0);
 
   return (
@@ -55,7 +57,7 @@ export const SevakNavigator = () => {
         name="HomeTab"
         component={SevakHomeScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: language === 'gu' ? 'હોમ' : language === 'hi' ? 'होम' : 'Home',
           tabBarIcon: ({ color }) => <HomeIcon size={22} color={color} />,
         }}
       />
@@ -63,7 +65,7 @@ export const SevakNavigator = () => {
         name="ViharTab"
         component={SevakViharScreen}
         options={{
-          tabBarLabel: 'Vihar',
+          tabBarLabel: language === 'gu' ? 'વિહાર' : language === 'hi' ? 'विहार' : 'Vihar',
           tabBarIcon: ({ color }) => (
             <NavigationIcon size={22} color={color} />
           ),
@@ -73,7 +75,7 @@ export const SevakNavigator = () => {
         name="HistoryTab"
         component={SevakHistoryScreen}
         options={{
-          tabBarLabel: 'History',
+          tabBarLabel: language === 'gu' ? 'ઇતિહાસ' : language === 'hi' ? 'इतिहास' : 'History',
           tabBarIcon: ({ color }) => <HistoryIcon size={22} color={color} />,
         }}
       />
@@ -81,7 +83,7 @@ export const SevakNavigator = () => {
         name="ProfileTab"
         component={SevakProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: language === 'gu' ? 'પ્રોફાઇલ' : language === 'hi' ? 'प्रोफ़ाइल' : 'Profile',
           tabBarIcon: ({ color }) => <UserIcon size={22} color={color} />,
         }}
       />
@@ -89,7 +91,7 @@ export const SevakNavigator = () => {
         name="MoreTab"
         component={SevakMoreScreen}
         options={{
-          tabBarLabel: 'More',
+          tabBarLabel: language === 'gu' ? 'વધુ' : language === 'hi' ? 'अधिक' : 'More',
           tabBarIcon: ({ color }) => <MenuIcon size={22} color={color} />,
         }}
       />

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -24,12 +25,13 @@ import {
   HistoryIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
+import { supabase } from '../../../core/config/supabase';
 import { viharService } from '../../vihar/services/viharService';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { t } from '../../../core/localization/i18n';
 
 export const SevakHistoryScreen = ({ navigation }) => {
-  const { user } = useAuthStore();
+  const { user, language } = useAuthStore();
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,9 +48,33 @@ export const SevakHistoryScreen = ({ navigation }) => {
     setIsLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+
+      if (!user?.id) return undefined;
+
+      const channel = supabase
+        .channel(`sevak-history-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'vihars',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            loadHistory();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [loadHistory, user])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -77,12 +103,12 @@ export const SevakHistoryScreen = ({ navigation }) => {
       <View style={styles.emptyIconCircle}>
         <HistoryIcon size={36} color={colors.saffronDark} />
       </View>
-      <Text style={styles.emptyTitle}>No Vihars Recorded Yet</Text>
+      <Text style={styles.emptyTitle}>{t('history.empty_title')}</Text>
       <Text style={styles.emptySubtitle}>
         Once you start and complete a Vihar journey with Pujya Sadhvijis, your sacred route, telemetry summary, and duration will be safely recorded here.
       </Text>
       <PrimaryButton
-        title="Go to Vihar Center"
+        title={t('history.go_to_vihar')}
         onPress={() => navigation.navigate('ViharTab')}
         variant="saffron"
         style={styles.emptyActionBtn}
@@ -91,18 +117,18 @@ export const SevakHistoryScreen = ({ navigation }) => {
   );
 
   return (
-    <View style={styles.container}>
+    <View key={language} style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
-        title={t('sevak.vihar_history')}
-        subtitle="Completed Journeys & Sacred Telemetry"
+        title={t('history.title')}
+        subtitle={t('history.subtitle')}
         showLogo
       />
 
       {isLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.saffron} />
-          <Text style={styles.loadingText}>Fetching Vihar history from Supabase...</Text>
+          <Text style={styles.loadingText}>{t('history.loading')}</Text>
         </View>
       ) : (
         <FlatList

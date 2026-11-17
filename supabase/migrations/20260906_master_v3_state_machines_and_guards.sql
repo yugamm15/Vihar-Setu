@@ -21,8 +21,7 @@ WHERE status = 'ACTIVE' AND sub_vihar_id IS NOT NULL;
 -- 3. STATE MACHINE TRANSITION ENFORCEMENT ON VIHAR
 -- Allowed transitions for vihar_status_type:
 -- PLANNED -> ACTIVE, CANCELLED
--- ACTIVE -> PAUSED, COMPLETED, CANCELLED
--- PAUSED -> ACTIVE, COMPLETED, CANCELLED
+-- ACTIVE -> COMPLETED, CANCELLED
 -- COMPLETED & CANCELLED are terminal
 CREATE OR REPLACE FUNCTION check_vihar_state_transition()
 RETURNS TRIGGER AS $$
@@ -33,9 +32,7 @@ BEGIN
 
   IF OLD.status = 'PLANNED' AND NEW.status IN ('ACTIVE', 'CANCELLED') THEN
     RETURN NEW;
-  ELSIF OLD.status = 'ACTIVE' AND NEW.status IN ('PAUSED', 'COMPLETED', 'CANCELLED') THEN
-    RETURN NEW;
-  ELSIF OLD.status = 'PAUSED' AND NEW.status IN ('ACTIVE', 'COMPLETED', 'CANCELLED') THEN
+  ELSIF OLD.status = 'ACTIVE' AND NEW.status IN ('COMPLETED', 'CANCELLED') THEN
     RETURN NEW;
   ELSIF OLD.status IN ('COMPLETED', 'CANCELLED') THEN
     RAISE EXCEPTION 'Illegal state transition: Vihar is terminal (%) and cannot transition to %', OLD.status, NEW.status;

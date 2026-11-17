@@ -13,6 +13,15 @@ export const alarmService = {
       const targetDate = new Date();
       if (departureDateStr === 'Tomorrow') {
         targetDate.setDate(targetDate.getDate() + 1);
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(departureDateStr)) {
+        const customDate = new Date(`${departureDateStr}T00:00:00`);
+        if (!Number.isNaN(customDate.getTime())) {
+          targetDate.setFullYear(
+            customDate.getFullYear(),
+            customDate.getMonth(),
+            customDate.getDate()
+          );
+        }
       }
 
       // Parse time string e.g. "05:30 AM"

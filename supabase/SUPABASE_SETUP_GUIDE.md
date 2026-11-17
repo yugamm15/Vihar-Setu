@@ -24,7 +24,8 @@ Follow these exact steps to link your Supabase backend to **Jinaarya Vihar Setu*
 4. Next, execute the Email Auth & Approval migration:
    - Open and copy [supabase/migrations/20260903_email_auth_and_sevak_approval.sql](file:///s:/Master's/Jinaarya%20Vihar%20seva/Jinaarya%20Vihar%20seva/supabase/migrations/20260903_email_auth_and_sevak_approval.sql).
    - Paste and click **"Run"**.
-5. Ensure the message says *"Success. No rows returned."*
+5. Execute the remaining migrations in filename order, including `20260909_fix_vihar_completion_transition.sql`.
+6. Ensure the message says *"Success. No rows returned."*
 
 ---
 

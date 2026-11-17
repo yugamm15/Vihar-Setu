@@ -14,6 +14,7 @@ import {
   TextInput,
   FlatList,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
@@ -40,7 +41,7 @@ import { t } from '../../../core/localization/i18n';
 
 const LANGUAGES = [
   { code: 'gu', label: 'ગુજરાતી' },
-  { code: 'hi', label: 'હિन्दी' },
+  { code: 'hi', label: 'हिन्दी' },
   { code: 'en', label: 'English' },
 ];
 
@@ -83,6 +84,7 @@ export const SevakProfileScreen = () => {
   const [areaSearch, setAreaSearch] = useState('');
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
   // Dynamic Keyboard Listeners
@@ -207,6 +209,17 @@ export const SevakProfileScreen = () => {
     });
   };
 
+  const handleLanguageChange = async (langCode) => {
+    if (isChangingLanguage || langCode === language) return;
+
+    setIsChangingLanguage(true);
+    try {
+      await changeLanguage(langCode);
+    } finally {
+      setIsChangingLanguage(false);
+    }
+  };
+
   const handleCallEmergency = (phone) => {
     if (!phone) return;
     const cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -231,7 +244,7 @@ export const SevakProfileScreen = () => {
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
-        title="Sevak Profile"
+        title={t('profile.title')}
         rightElement={
           <TouchableOpacity
             onPress={() => setIsLogoutModalOpen(true)}
@@ -272,7 +285,7 @@ export const SevakProfileScreen = () => {
           <View style={styles.roleBadgeRow}>
             <View style={styles.verifiedRoleBadge}>
               <CheckCircleIcon size={16} color={colors.statusSafe} />
-              <Text style={styles.verifiedRoleText}>VERIFIED SEVAK</Text>
+              <Text style={styles.verifiedRoleText}>{t('profile.verified')}</Text>
             </View>
           </View>
 
@@ -282,7 +295,7 @@ export const SevakProfileScreen = () => {
               onPress={openEditModal}
               style={styles.editProfileChip}
             >
-              <Text style={styles.editProfileChipText}>Edit Profile</Text>
+              <Text style={styles.editProfileChipText}>{t('profile.edit')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -290,14 +303,14 @@ export const SevakProfileScreen = () => {
               onPress={() => setIsAvatarModalOpen(true)}
               style={styles.avatarPickerChip}
             >
-              <Text style={styles.avatarPickerChipText}>Change Avatar</Text>
+              <Text style={styles.avatarPickerChipText}>{t('profile.avatar')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Section 1: Personal Details */}
         <View style={[styles.sectionCard, shadows.card]}>
-          <Text style={styles.sectionHeader}>Personal Information</Text>
+          <Text style={styles.sectionHeader}>{t('profile.personal')}</Text>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Email</Text>
@@ -374,7 +387,7 @@ export const SevakProfileScreen = () => {
         {/* Section 2: Emergency Contact & Quick Call */}
         <View style={[styles.sectionCard, shadows.card]}>
           <View style={styles.emergencyHeaderRow}>
-            <Text style={styles.sectionHeader}>Emergency Contact</Text>
+            <Text style={styles.sectionHeader}>{t('profile.emergency')}</Text>
             <ShieldIcon size={18} color={colors.statusEmergency} />
           </View>
 
@@ -401,14 +414,14 @@ export const SevakProfileScreen = () => {
             style={styles.quickCallBtn}
           >
             <PhoneIcon size={18} color="#FFFFFF" />
-            <Text style={styles.quickCallText}>Call Emergency Contact</Text>
+            <Text style={styles.quickCallText}>{t('profile.call_emergency')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Section 3: Language Preference */}
         <View style={[styles.sectionCard, shadows.card]}>
-          <Text style={styles.sectionHeader}>App Language (ભાષા / भाषा)</Text>
-          <Text style={styles.sectionSub}>Select preferred language for app interface</Text>
+          <Text style={styles.sectionHeader}>{t('profile.language')}</Text>
+          <Text style={styles.sectionSub}>{t('profile.select_language')}</Text>
 
           <View style={styles.langRow}>
             {LANGUAGES.map((item) => {
@@ -417,17 +430,25 @@ export const SevakProfileScreen = () => {
                 <TouchableOpacity
                   key={item.code}
                   activeOpacity={0.8}
-                  onPress={() => changeLanguage(item.code)}
+                  disabled={isChangingLanguage}
+                  onPress={() => handleLanguageChange(item.code)}
                   style={[styles.langChip, isSelected && styles.langChipActive]}
                 >
-                  <Text
-                    style={[
-                      styles.langChipText,
-                      isSelected && styles.langChipTextActive,
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
+                  {isChangingLanguage && isSelected ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.warmIvory}
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.langChipText,
+                        isSelected && styles.langChipTextActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -441,7 +462,7 @@ export const SevakProfileScreen = () => {
           style={[styles.logoutCard, shadows.card]}
         >
           <LogoutIcon size={20} color={colors.statusEmergency} />
-          <Text style={styles.logoutText}>Logout of Account</Text>
+          <Text style={styles.logoutText}>{t('profile.logout')}</Text>
         </TouchableOpacity>
 
         {/* Section 5: App Branding & Version */}

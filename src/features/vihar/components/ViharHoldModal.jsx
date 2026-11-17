@@ -83,7 +83,7 @@ export const ViharHoldModal = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <ClockIcon size={24} color={colors.warning} />
+              <ClockIcon size={24} color={colors.statusWarning} />
             </View>
             <View style={styles.headerTextWrap}>
               <Text style={styles.title}>Initiate Vihar Hold</Text>
@@ -108,7 +108,7 @@ export const ViharHoldModal = ({
             {/* Error Message */}
             {!!errorMsg && (
               <View style={styles.errorBox}>
-                <AlertTriangleIcon size={16} color={colors.emergency} />
+                <AlertTriangleIcon size={16} color={colors.statusEmergency} />
                 <Text style={styles.errorText}>{errorMsg}</Text>
               </View>
             )}
@@ -159,7 +159,7 @@ export const ViharHoldModal = ({
               value={locationName}
               onChangeText={setLocationName}
               placeholder="e.g. Adajan Upashray / Ring Road Circle"
-              placeholderTextColor={colors.gray500}
+              placeholderTextColor={colors.textMuted}
             />
 
             {/* Notes */}
@@ -169,7 +169,7 @@ export const ViharHoldModal = ({
               value={notes}
               onChangeText={setNotes}
               placeholder="e.g. Taking 15 minutes rest for Gochari/water"
-              placeholderTextColor={colors.gray500}
+              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={3}
             />
@@ -191,10 +191,10 @@ export const ViharHoldModal = ({
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator color={colors.white} />
+                <ActivityIndicator color={colors.textLight} />
               ) : (
                 <>
-                  <CheckCircleIcon size={18} color={colors.white} />
+                  <CheckCircleIcon size={18} color={colors.textLight} />
                   <Text style={styles.confirmButtonText}>Start Hold Now</Text>
                 </>
               )}
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.warmIvory,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
@@ -225,13 +225,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
+    borderBottomColor: colors.cardBorder,
   },
   iconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.warning + '20',
+    backgroundColor: colors.statusWarningBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryDark + '20',
+    backgroundColor: colors.softCream,
     borderRadius: 10,
     padding: spacing.sm,
     marginBottom: spacing.md,
@@ -281,16 +281,16 @@ const styles = StyleSheet.create({
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.emergency + '15',
+    backgroundColor: colors.statusEmergencyBg,
     padding: spacing.sm,
     borderRadius: 8,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.emergency,
+    borderColor: colors.statusEmergency,
   },
   errorText: {
     flex: 1,
-    color: colors.emergency,
+    color: colors.statusEmergency,
     fontSize: 12,
     fontFamily: typography.medium,
     marginLeft: spacing.xs,
@@ -310,23 +310,23 @@ const styles = StyleSheet.create({
   reasonCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.inputBg,
     borderRadius: 12,
     padding: spacing.sm,
     marginBottom: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderColor: colors.cardBorder,
   },
   reasonCardSelected: {
-    borderColor: colors.warning,
-    backgroundColor: colors.warning + '12',
+    borderColor: colors.statusWarning,
+    backgroundColor: colors.statusWarningBg,
   },
   reasonRadio: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.gray400,
+    borderColor: colors.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   radioInnerSelected: {
-    backgroundColor: colors.warning,
+    backgroundColor: colors.statusWarning,
   },
   reasonInfo: {
     flex: 1,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   reasonLabelSelected: {
-    color: colors.warning,
+    color: colors.statusWarning,
     fontFamily: typography.semiBold,
   },
   reasonDesc: {
@@ -358,10 +358,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   input: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.inputBg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderColor: colors.cardBorder,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     fontSize: 14,
@@ -377,8 +377,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.surfaceBorder,
-    backgroundColor: colors.surface,
+    borderTopColor: colors.cardBorder,
+    backgroundColor: colors.warmIvory,
   },
   cancelButton: {
     flex: 1,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderColor: colors.cardBorder,
     marginRight: spacing.sm,
   },
   cancelButtonText: {
@@ -400,13 +400,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.warning,
+    backgroundColor: colors.statusWarning,
     paddingVertical: spacing.sm + 2,
     borderRadius: 10,
     gap: spacing.xs,
   },
   confirmButtonText: {
-    color: colors.white,
+    color: colors.textLight,
     fontSize: 14,
     fontFamily: typography.semiBold,
   },

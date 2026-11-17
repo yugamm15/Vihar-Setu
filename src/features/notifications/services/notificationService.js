@@ -24,8 +24,12 @@ class NotificationService {
       if (error) throw error;
       return { data: data || [], error: null };
     } catch (e) {
-      console.warn('[NotificationService] getUserNotifications warning:', e);
-      return { data: [], error: e };
+      const missingNotificationTable =
+        e?.code === 'PGRST205' || e?.code === '42P01';
+      if (!missingNotificationTable) {
+        console.warn('[NotificationService] getUserNotifications warning:', e);
+      }
+      return { data: [], error: missingNotificationTable ? null : e };
     }
   }
 

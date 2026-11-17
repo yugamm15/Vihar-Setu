@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   iconContainer: {
     marginRight: spacing.sm,
@@ -60,6 +61,7 @@ const styles = StyleSheet.create({
   text: {
     ...typography.button,
     color: colors.deepMaroon,
+    textAlign: 'center',
   },
   disabledText: {
     color: colors.textMuted,

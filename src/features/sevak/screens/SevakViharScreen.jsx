@@ -58,8 +58,50 @@ import { routeDeviationEngine, DEVIATION_STATUS } from '../../vihar/services/rou
 import { stationaryWatchdogService } from '../../vihar/services/stationaryWatchdogService';
 import { t } from '../../../core/localization/i18n';
 
-export const SevakViharScreen = ({ navigation }) => {
-  const { user, profile } = useAuthStore();
+const getLocalizedUpashrayName = (upashray, language) => {
+  if (language === 'gu') return upashray.nameGu || upashray.name;
+  if (language === 'hi') return upashray.nameHi || upashray.name;
+  return upashray.name;
+};
+
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTimeMinutes = (time) => {
+  const match = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return -1;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (match[3].toUpperCase() === 'PM' && hours < 12) hours += 12;
+  if (match[3].toUpperCase() === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+};
+
+const isValidFutureDate = (dateKey) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return false;
+  const date = new Date(`${dateKey}T00:00:00`);
+  return (
+    !Number.isNaN(date.getTime()) &&
+    getLocalDateKey(date) === dateKey &&
+    dateKey > getLocalDateKey()
+  );
+};
+
+const getScheduledDateTime = (notes = '') => {
+  const dateMatch = notes.match(/Date:\s*([^|]+)/i);
+  const timeMatch = notes.match(/Time:\s*([^|]+)/i);
+  return {
+    date: dateMatch?.[1]?.trim() || 'Tomorrow',
+    time: timeMatch?.[1]?.trim() || '05:30 AM',
+  };
+};
+
+export const SevakViharScreen = ({ navigation, route }) => {
+  const { user, profile, language } = useAuthStore();
   const { showAlert } = useAlertStore();
   const {
     activeVihar,
@@ -111,7 +153,8 @@ export const SevakViharScreen = ({ navigation }) => {
 
   // Vihar Creation Form State
   const [creationMode, setCreationMode] = useState('SCHEDULE'); // 'NOW' | 'SCHEDULE'
-  const [selectedDate, setSelectedDate] = useState('Today');
+  const [selectedDate, setSelectedDate] = useState('Tomorrow');
+  const [customDate, setCustomDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('05:30 AM');
   const [sadhvijiName, setSadhvijiName] = useState(
     'Pujya Sadhviji Mayurashriji Maharaj Saheb'
@@ -130,9 +173,13 @@ export const SevakViharScreen = ({ navigation }) => {
   const [activePreAlert, setActivePreAlert] = useState(null);
 
   // Checklist State for Preparation
-  const [checklist, setChecklist] = useState(
-    alarmService.getPreparationChecklist()
-  );
+  const checklist = [
+    { id: '1', title: t('vihar.checklist_1_title'), detail: t('vihar.checklist_1_detail') },
+    { id: '2', title: t('vihar.checklist_2_title'), detail: t('vihar.checklist_2_detail') },
+    { id: '3', title: t('vihar.checklist_3_title'), detail: t('vihar.checklist_3_detail') },
+    { id: '4', title: t('vihar.checklist_4_title'), detail: t('vihar.checklist_4_detail') },
+    { id: '5', title: t('vihar.checklist_5_title'), detail: t('vihar.checklist_5_detail') },
+  ];
 
   // Load state on mount
   useEffect(() => {
@@ -145,11 +192,8 @@ export const SevakViharScreen = ({ navigation }) => {
   useEffect(() => {
     if (scheduledVihars && scheduledVihars.length > 0) {
       const firstScheduled = scheduledVihars[0];
-      const departureTime = firstScheduled.notes?.includes('Time:')
-        ? firstScheduled.notes.split('Time:')[1]?.trim()?.split(' ')[0] + ' AM'
-        : '05:30 AM';
-
-      const info = alarmService.getAlarmTime('Today', departureTime);
+      const { date, time } = getScheduledDateTime(firstScheduled.notes);
+      const info = alarmService.getAlarmTime(date, time);
       setActivePreAlert(info);
       setShowWakeupAlert(true);
     } else {
@@ -334,10 +378,33 @@ export const SevakViharScreen = ({ navigation }) => {
     destUpashray.lng
   );
 
+  const availableTimePresets =
+    selectedDate === 'Today'
+      ? VIHAR_TIME_PRESETS.filter(
+          (time) => getTimeMinutes(time) > new Date().getHours() * 60 + new Date().getMinutes()
+        )
+      : VIHAR_TIME_PRESETS;
+
+  useEffect(() => {
+    if (creationMode !== 'SCHEDULE') return;
+    if (availableTimePresets.length === 0) {
+      setSelectedTime('');
+    } else if (!availableTimePresets.includes(selectedTime)) {
+      setSelectedTime(availableTimePresets[0]);
+    }
+  }, [creationMode, selectedDate, customDate, availableTimePresets.join('|')]);
+
   const handleOpenCreateModal = (mode = 'NOW') => {
     setCreationMode(mode);
     setIsCreateModalOpen(true);
   };
+
+  useEffect(() => {
+    if (route?.params?.openCreateMode) {
+      handleOpenCreateModal(route.params.openCreateMode);
+      navigation.setParams({ openCreateMode: undefined });
+    }
+  }, [route?.params?.openCreateMode]);
 
   const handleConfirmVihar = async () => {
     if (sourceUpashray.id === destUpashray.id) {
@@ -350,6 +417,35 @@ export const SevakViharScreen = ({ navigation }) => {
       return;
     }
 
+    if (creationMode === 'SCHEDULE') {
+      if (selectedDate === 'Custom Date' && !isValidFutureDate(customDate)) {
+        showAlert({
+          type: 'WARNING',
+          title: t('vihar.invalid_date_title'),
+          message: t('vihar.invalid_date_message'),
+          confirmText: 'OK',
+        });
+        return;
+      }
+
+      if (!selectedTime) {
+        showAlert({
+          type: 'WARNING',
+          title: t('vihar.invalid_time_title'),
+          message: t('vihar.invalid_time_message'),
+          confirmText: 'OK',
+        });
+        return;
+      }
+    }
+
+    const departureDate =
+      selectedDate === 'Today'
+        ? getLocalDateKey()
+        : selectedDate === 'Tomorrow'
+        ? getLocalDateKey(new Date(Date.now() + 24 * 60 * 60 * 1000))
+        : customDate;
+
     const payload = {
       title: `Vihar to ${destUpashray.name}`,
       source_name: `${sourceUpashray.name} (${sourceUpashray.area})`,
@@ -360,7 +456,7 @@ export const SevakViharScreen = ({ navigation }) => {
       dest_lng: destUpashray.lng,
       total_distance_km: routeEstimate.distanceKm,
       estimated_duration_mins: routeEstimate.durationMinutes,
-      notes: `Sadhviji: ${sadhvijiName.trim()} | Date: ${selectedDate} | Time: ${selectedTime} | ${viharNotes.trim()}`,
+      notes: `Sadhviji: ${sadhvijiName.trim()} | Date: ${departureDate} | Time: ${selectedTime} | ${viharNotes.trim()}`,
     };
 
     if (creationMode === 'NOW') {
@@ -379,7 +475,7 @@ export const SevakViharScreen = ({ navigation }) => {
       const success = await scheduleFutureVihar(user.id, payload);
       if (success) {
         setIsCreateModalOpen(false);
-        const alarmInfo = alarmService.getAlarmTime(selectedDate, selectedTime);
+        const alarmInfo = alarmService.getAlarmTime(departureDate, selectedTime);
         showAlert({
           type: 'SUCCESS',
           title: 'Vihar Scheduled',
@@ -442,9 +538,20 @@ export const SevakViharScreen = ({ navigation }) => {
   const handleEndVihar = async () => {
     setEndModalVisible(false);
     if (activeVihar?.id) {
-      await completeActiveVihar(activeVihar.id, {
+      const completed = await completeActiveVihar(activeVihar.id, {
         total_distance_km: activeVihar.total_distance_km || 4.8,
       });
+      if (!completed) {
+        showAlert({
+          type: 'ERROR',
+          title: 'Unable to Complete Vihar',
+          message: 'The Vihar could not be saved. Please check your connection and try again.',
+          confirmText: 'OK',
+          confirmVariant: 'maroon',
+        });
+        return;
+      }
+
       showAlert({
         type: 'SUCCESS',
         title: 'Vihar Concluded',
@@ -500,11 +607,11 @@ export const SevakViharScreen = ({ navigation }) => {
     Boolean(activeEmergency) || activeVihar?.safety_status === 'EMERGENCY';
 
   return (
-    <View style={styles.container}>
+    <View key={language} style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
-        title={activeVihar ? 'Active Vihar • LIVE' : 'Vihar Seva Dashboard'}
-        subtitle={activeVihar ? `To ${activeVihar.dest_name}` : 'Safe Sadhviji Movement'}
+        title={activeVihar ? t('vihar.active_title') : t('vihar.dashboard_title')}
+        subtitle={activeVihar ? `To ${activeVihar.dest_name}` : t('vihar.dashboard_subtitle')}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -784,18 +891,20 @@ export const SevakViharScreen = ({ navigation }) => {
                   </View>
                   <View style={styles.alarmHeaderTextCol}>
                     <Text style={styles.alarmBannerTitle}>
-                      30-Min Pre-Vihar Wake-up Alert
+                      {t('vihar.alarm_alert_title')}
                     </Text>
                     <Text style={styles.alarmBannerSub}>
-                      Scheduled Alarm set for {activePreAlert.alarmTimeString}
+                      {t('vihar.scheduled_alarm', {
+                        time: activePreAlert.alarmTimeString,
+                      })}
                     </Text>
                   </View>
                 </View>
 
                 <Text style={styles.checklistTitle}>
-                  Pre-Vihar Seva Preparation Checklist:
+                  {t('vihar.checklist_title')}
                 </Text>
-                {alarmService.getPreparationChecklist().map((item) => (
+                {checklist.map((item) => (
                   <View key={item.id} style={styles.checklistItem}>
                     <Text style={styles.checklistCheck}>•</Text>
                     <View style={styles.checklistTextCol}>
@@ -811,7 +920,7 @@ export const SevakViharScreen = ({ navigation }) => {
             <View style={[styles.idleSafetyStrip, shadows.subtle]}>
               <View style={styles.idleSafetyHeader}>
                 <WomenSafetyShieldIcon size={18} color={colors.statusEmergency} />
-                <Text style={styles.idleSafetyTitle}>24x7 Women Safety & Emergency Dials</Text>
+                <Text style={styles.idleSafetyTitle}>{t('vihar.women_safety')}</Text>
               </View>
               <View style={styles.idleHelplineRow}>
                 <TouchableOpacity
@@ -819,21 +928,21 @@ export const SevakViharScreen = ({ navigation }) => {
                   onPress={() => Linking.openURL('tel:112')}
                   style={styles.idleHelplineChip}
                 >
-                  <Text style={styles.idleHelplineText}>112 Police</Text>
+                  <Text style={styles.idleHelplineText}>{t('home.police')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => Linking.openURL('tel:181')}
                   style={styles.idleHelplineChip}
                 >
-                  <Text style={styles.idleHelplineText}>181 Abhayam</Text>
+                  <Text style={styles.idleHelplineText}>{t('home.abhayam')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => Linking.openURL('tel:+919876500000')}
                   style={styles.idleHelplineChip}
                 >
-                  <Text style={styles.idleHelplineText}>Surat Vihar Desk</Text>
+                  <Text style={styles.idleHelplineText}>{t('home.vihar_desk')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -843,20 +952,20 @@ export const SevakViharScreen = ({ navigation }) => {
               <View style={styles.idleAuraCircle}>
                 <Text style={styles.idleAuraText}>VIHAR</Text>
               </View>
-              <Text style={styles.idleTitle}>No Active Vihar in Progress</Text>
+              <Text style={styles.idleTitle}>{t('vihar.no_active')}</Text>
               <Text style={styles.idleSubtitle}>
-                Ready to assist Pujya Sadhviji Bhagwants? You can start a Vihar immediately or schedule one for early morning with a 30-minute wake-up alarm.
+                {t('vihar.no_active_subtitle')}
               </Text>
 
               <View style={styles.idleBtnRow}>
                 <PrimaryButton
-                  title="START VIHAR NOW"
+                  title={t('vihar.start_now')}
                   variant="saffron"
                   onPress={() => handleOpenCreateModal('NOW')}
                   style={styles.heroBtn}
                 />
                 <SecondaryButton
-                  title="SCHEDULE VIHAR"
+                  title={t('vihar.schedule')}
                   onPress={() => handleOpenCreateModal('SCHEDULE')}
                   style={styles.heroBtnSecondary}
                 />
@@ -871,7 +980,10 @@ export const SevakViharScreen = ({ navigation }) => {
                   Scheduled Upcoming Vihars ({scheduledVihars.length})
                 </Text>
 
-                {scheduledVihars.map((vihar) => (
+                {scheduledVihars.map((vihar) => {
+                  const { date, time } = getScheduledDateTime(vihar.notes);
+                  const alarmInfo = alarmService.getAlarmTime(date, time);
+                  return (
                   <View key={vihar.id} style={[styles.scheduledCard, shadows.card]}>
                     <View style={styles.scheduledCardHeader}>
                       <View style={styles.scheduledTimeBadge}>
@@ -894,7 +1006,9 @@ export const SevakViharScreen = ({ navigation }) => {
                     <View style={styles.alarmNoticeBox}>
                       <Text style={styles.alarmNoticeTag}>ALARM ACTIVE</Text>
                       <Text style={styles.alarmNoticeText}>
-                        30-Min Wake-up Alarm set for 05:00 AM
+                        {t('vihar.scheduled_alarm', {
+                          time: alarmInfo.alarmTimeString,
+                        })}
                       </Text>
                     </View>
 
@@ -914,11 +1028,12 @@ export const SevakViharScreen = ({ navigation }) => {
                       style={styles.startEarlyBtn}
                     />
                   </View>
-                ))}
+                  );
+                })}
               </View>
             ) : (
               <View style={[styles.emptyScheduleCard, shadows.subtle]}>
-                <Text style={styles.emptyScheduleTitle}>No Upcoming Scheduled Vihars</Text>
+                <Text style={styles.emptyScheduleTitle}>{t('vihar.no_upcoming')}</Text>
                 <Text style={styles.emptyScheduleSub}>
                   Tap "Schedule Vihar" above to set up tomorrow's early morning Vihar with a 30-minute pre-alarm.
                 </Text>
@@ -944,13 +1059,15 @@ export const SevakViharScreen = ({ navigation }) => {
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {creationMode === 'NOW' ? 'Start Vihar Now' : 'Schedule Vihar'}
+                {creationMode === 'NOW'
+                  ? t('vihar.start_now_title')
+                  : t('vihar.schedule_title')}
               </Text>
               <TouchableOpacity
                 onPress={() => setIsCreateModalOpen(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>Cancel</Text>
+                <Text style={styles.closeBtnText}>{t('vihar.cancel')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -969,7 +1086,7 @@ export const SevakViharScreen = ({ navigation }) => {
                     creationMode === 'NOW' && styles.modeTabTextActive,
                   ]}
                 >
-                  Start Now
+                  {t('vihar.start_now_tab')}
                 </Text>
               </TouchableOpacity>
 
@@ -986,7 +1103,7 @@ export const SevakViharScreen = ({ navigation }) => {
                     creationMode === 'SCHEDULE' && styles.modeTabTextActive,
                   ]}
                 >
-                  Schedule for Later
+                  {t('vihar.schedule_later_tab')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -995,34 +1112,53 @@ export const SevakViharScreen = ({ navigation }) => {
               {/* Date & Time (if Scheduled) */}
               {creationMode === 'SCHEDULE' && (
                 <>
-                  <Text style={styles.inputLabel}>Departure Date *</Text>
+                  <Text style={styles.inputLabel}>{t('vihar.departure_date')}</Text>
                   <View style={styles.chipsRow}>
-                    {['Today', 'Tomorrow', 'Custom Date'].map((d) => (
+                    {[
+                      ['Tomorrow', t('vihar.tomorrow')],
+                      ['Custom Date', t('vihar.custom_date')],
+                    ].map(([value, label]) => (
                       <TouchableOpacity
-                        key={d}
-                        onPress={() => setSelectedDate(d)}
+                        key={value}
+                        onPress={() => setSelectedDate(value)}
                         style={[
                           styles.chip,
-                          selectedDate === d && styles.chipActive,
+                          selectedDate === value && styles.chipActive,
                         ]}
                       >
                         <Text
                           style={[
                             styles.chipText,
-                            selectedDate === d && styles.chipTextActive,
+                            selectedDate === value && styles.chipTextActive,
                           ]}
                         >
-                          {d}
+                          {label}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
 
+                  {selectedDate === 'Custom Date' ? (
+                    <>
+                      <Text style={styles.inputLabel}>
+                        {t('vihar.custom_date_required')}
+                      </Text>
+                      <TextInput
+                        value={customDate}
+                        onChangeText={setCustomDate}
+                        placeholder={t('vihar.custom_date_placeholder')}
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="numbers-and-punctuation"
+                        style={styles.textInputBox}
+                      />
+                    </>
+                  ) : null}
+
                   <Text style={styles.inputLabel}>
-                    Departure Time (Early Morning) *
+                    {t('vihar.departure_time')}
                   </Text>
                   <View style={styles.chipsRowWrap}>
-                    {VIHAR_TIME_PRESETS.map((t) => (
+                    {availableTimePresets.map((t) => (
                       <TouchableOpacity
                         key={t}
                         onPress={() => setSelectedTime(t)}
@@ -1042,23 +1178,28 @@ export const SevakViharScreen = ({ navigation }) => {
                       </TouchableOpacity>
                     ))}
                   </View>
+                  {availableTimePresets.length === 0 ? (
+                    <Text style={styles.scheduleHint}>
+                      {t('vihar.no_today_times')}
+                    </Text>
+                  ) : null}
 
                   {/* 30-Minute Alarm Alert Notice */}
                   <View style={styles.alarmConfigBox}>
                     <View style={styles.alarmBadgeSmall}>
-                      <Text style={styles.alarmBadgeSmallText}>ALARM</Text>
+                      <Text style={styles.alarmBadgeSmallText}>{t('vihar.alarm')}</Text>
                     </View>
                     <View style={styles.alarmConfigTextCol}>
                       <Text style={styles.alarmConfigTitle}>
-                        30-Minute Pre-Vihar Wake-up Alarm
+                        {t('vihar.alarm_title')}
                       </Text>
                       <Text style={styles.alarmConfigSub}>
-                        Alarm will chime at{' '}
+                        {t('vihar.alarm_prefix')}{' '}
                         {
                           alarmService.getAlarmTime(selectedDate, selectedTime)
                             .alarmTimeString
                         }{' '}
-                        with the Seva preparation checklist.
+                        {' '}{t('vihar.alarm_suffix')}
                       </Text>
                     </View>
                   </View>
@@ -1066,7 +1207,7 @@ export const SevakViharScreen = ({ navigation }) => {
               )}
 
               {/* Sadhviji Bhagwant Name */}
-              <Text style={styles.inputLabel}>Pujya Sadhviji Bhagwant / Group *</Text>
+              <Text style={styles.inputLabel}>{t('vihar.name_label')}</Text>
               <TextInput
                 value={sadhvijiName}
                 onChangeText={setSadhvijiName}
@@ -1076,14 +1217,16 @@ export const SevakViharScreen = ({ navigation }) => {
               />
 
               {/* Source Upashray Selection */}
-              <Text style={styles.inputLabel}>Source (Origin Upashray) *</Text>
+              <Text style={styles.inputLabel}>{t('vihar.source_label')}</Text>
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => setIsOriginPickerOpen(true)}
                 style={styles.pickerBox}
               >
                 <View>
-                  <Text style={styles.pickerValueTitle}>{sourceUpashray.name}</Text>
+                  <Text style={styles.pickerValueTitle}>
+                    {getLocalizedUpashrayName(sourceUpashray, language)}
+                  </Text>
                   <Text style={styles.pickerValueSub}>
                     {sourceUpashray.address}
                   </Text>
@@ -1093,7 +1236,7 @@ export const SevakViharScreen = ({ navigation }) => {
 
               {/* Destination Upashray Selection */}
               <Text style={styles.inputLabel}>
-                Destination (Arrival Upashray) *
+                {t('vihar.destination_label')}
               </Text>
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -1101,7 +1244,9 @@ export const SevakViharScreen = ({ navigation }) => {
                 style={styles.pickerBox}
               >
                 <View>
-                  <Text style={styles.pickerValueTitle}>{destUpashray.name}</Text>
+                  <Text style={styles.pickerValueTitle}>
+                    {getLocalizedUpashrayName(destUpashray, language)}
+                  </Text>
                   <Text style={styles.pickerValueSub}>
                     {destUpashray.address}
                   </Text>
@@ -1111,26 +1256,26 @@ export const SevakViharScreen = ({ navigation }) => {
 
               {/* Route Estimation Card */}
               <View style={styles.estimateCard}>
-                <Text style={styles.estimateTitle}>Calculated Route Preview</Text>
+                <Text style={styles.estimateTitle}>{t('vihar.route_preview')}</Text>
                 <View style={styles.estimateRow}>
                   <View style={styles.estimateBox}>
                     <Text style={styles.estimateVal}>
                       {routeEstimate.distanceKm} km
                     </Text>
-                    <Text style={styles.estimateLbl}>Walking Distance</Text>
+                    <Text style={styles.estimateLbl}>{t('vihar.walking_distance')}</Text>
                   </View>
                   <View style={styles.estimateDivider} />
                   <View style={styles.estimateBox}>
                     <Text style={styles.estimateVal}>
                       ~{routeEstimate.formattedDuration}
                     </Text>
-                    <Text style={styles.estimateLbl}>Est. Duration</Text>
+                    <Text style={styles.estimateLbl}>{t('vihar.estimated_duration')}</Text>
                   </View>
                 </View>
               </View>
 
               {/* Optional Notes */}
-              <Text style={styles.inputLabel}>Optional Seva Notes</Text>
+              <Text style={styles.inputLabel}>{t('vihar.notes_label')}</Text>
               <TextInput
                 value={viharNotes}
                 onChangeText={setViharNotes}
@@ -1143,15 +1288,15 @@ export const SevakViharScreen = ({ navigation }) => {
               {/* Submit Buttons */}
               <View style={styles.modalBtnRow}>
                 <SecondaryButton
-                  title="Cancel"
+                  title={t('vihar.cancel')}
                   onPress={() => setIsCreateModalOpen(false)}
                   style={styles.modalCancelBtn}
                 />
                 <PrimaryButton
                   title={
                     creationMode === 'NOW'
-                      ? 'Start Vihar'
-                      : 'Schedule Vihar'
+                      ? t('vihar.start_action')
+                      : t('vihar.schedule_action')
                   }
                   variant="saffron"
                   loading={isLoading}
@@ -1174,12 +1319,12 @@ export const SevakViharScreen = ({ navigation }) => {
         <View style={styles.pickerModalOverlay}>
           <View style={[styles.pickerModalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Starting Upashray</Text>
+              <Text style={styles.modalTitle}>{t('vihar.select_start')}</Text>
               <TouchableOpacity
                 onPress={() => setIsOriginPickerOpen(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>Cancel</Text>
+                <Text style={styles.closeBtnText}>{t('vihar.cancel')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1206,11 +1351,11 @@ export const SevakViharScreen = ({ navigation }) => {
                           isSel && styles.upashrayNameActive,
                         ]}
                       >
-                        {item.name}
+                        {getLocalizedUpashrayName(item, language)}
                       </Text>
                       <Text style={styles.upashrayAddr}>{item.address}</Text>
                     </View>
-                    {isSel ? <Text style={styles.checkMark}>Selected</Text> : null}
+                    {isSel ? <Text style={styles.checkMark}>{t('vihar.selected')}</Text> : null}
                   </TouchableOpacity>
                 );
               }}
@@ -1229,12 +1374,12 @@ export const SevakViharScreen = ({ navigation }) => {
         <View style={styles.pickerModalOverlay}>
           <View style={[styles.pickerModalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Destination Upashray</Text>
+              <Text style={styles.modalTitle}>{t('vihar.select_destination')}</Text>
               <TouchableOpacity
                 onPress={() => setIsDestPickerOpen(false)}
                 style={styles.closeBtn}
               >
-                <Text style={styles.closeBtnText}>Cancel</Text>
+                <Text style={styles.closeBtnText}>{t('vihar.cancel')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1261,11 +1406,11 @@ export const SevakViharScreen = ({ navigation }) => {
                           isSel && styles.upashrayNameActive,
                         ]}
                       >
-                        {item.name}
+                        {getLocalizedUpashrayName(item, language)}
                       </Text>
                       <Text style={styles.upashrayAddr}>{item.address}</Text>
                     </View>
-                    {isSel ? <Text style={styles.checkMark}>Selected</Text> : null}
+                    {isSel ? <Text style={styles.checkMark}>{t('vihar.selected')}</Text> : null}
                   </TouchableOpacity>
                 );
               }}

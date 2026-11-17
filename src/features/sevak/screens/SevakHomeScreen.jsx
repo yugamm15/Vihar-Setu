@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -31,22 +32,44 @@ import { supabase } from '../../../core/config/supabase';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
 import { t } from '../../../core/localization/i18n';
 
+const formatViharDuration = (vihar) => {
+  const start = vihar.started_at ? new Date(vihar.started_at) : null;
+  const end = vihar.completed_at
+    ? new Date(vihar.completed_at)
+    : vihar.status === 'ACTIVE'
+      ? new Date()
+      : null;
+
+  if (start && end && end >= start) {
+    const minutes = Math.max(0, Math.round((end - start) / 60000));
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
+  }
+
+  return vihar.estimated_duration_mins
+    ? `${vihar.estimated_duration_mins}m`
+    : null;
+};
+
 export const SevakHomeScreen = ({ navigation }) => {
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, logout, language } = useAuthStore();
   const { activeVihar, scheduledVihars, loadViharState } = useViharStore();
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
-    totalVihars: 18,
-    totalDistanceKm: '84.5',
-    lastViharDistance: '4.8 km',
-    lastViharDuration: '1h 12m',
+    totalVihars: 0,
+    totalDistanceKm: '0.0',
+    todayDistance: null,
+    todayDuration: null,
+    deskPhone: null,
   });
+  const [statsError, setStatsError] = useState(null);
 
   const getGreeting = () => {
     const hours = new Date().getHours();
-    if (hours < 12) return 'Good Morning';
-    if (hours < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hours < 12) return t('home.morning');
+    if (hours < 17) return t('home.afternoon');
+    return t('home.evening');
   };
 
   /**
@@ -54,44 +77,72 @@ export const SevakHomeScreen = ({ navigation }) => {
    */
   const loadSevakStats = useCallback(async () => {
     if (!user?.id) return;
+    setStatsError(null);
     try {
       await loadViharState(user.id);
 
       const { data, error } = await supabase
         .from('vihars')
-        .select('total_distance_km, estimated_duration_mins, status, created_at')
-        .eq('user_id', user.id);
+        .select(
+          'total_distance_km, estimated_duration_mins, status, created_at, started_at, completed_at'
+        )
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        const completed = data.filter(
-          (v) => v.status === 'COMPLETED' || v.status === 'ACTIVE'
-        );
-        const count = completed.length;
-        const totalKm = completed.reduce(
-          (sum, v) => sum + (Number(v.total_distance_km) || 0),
-          0
-        );
+      if (error) throw error;
 
-        const last = data[0];
-        setStats({
-          totalVihars: count > 0 ? count : 18,
-          totalDistanceKm: totalKm > 0 ? totalKm.toFixed(1) : '84.5',
-          lastViharDistance: last?.total_distance_km
-            ? `${last.total_distance_km} km`
-            : '4.8 km',
-          lastViharDuration: last?.estimated_duration_mins
-            ? `${last.estimated_duration_mins}m`
-            : '1h 12m',
-        });
+      let deskPhone = null;
+      if (profile?.area) {
+        const { data: area, error: areaError } = await supabase
+          .from('areas')
+          .select('admin_phone')
+          .eq('name', profile.area)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (areaError) throw areaError;
+        deskPhone = area?.admin_phone || null;
       }
-    } catch (e) {
-      console.log('[SevakHome] Fetch stats info:', e);
-    }
-  }, [user, loadViharState]);
 
-  useEffect(() => {
-    loadSevakStats();
-  }, [loadSevakStats]);
+      const vihars = data || [];
+      const completed = vihars.filter((vihar) => vihar.status === 'COMPLETED');
+      const totalKm = completed.reduce(
+        (sum, vihar) => sum + (Number(vihar.total_distance_km) || 0),
+        0
+      );
+      const today = new Date();
+      const todayVihar = vihars.find((vihar) => {
+        if (vihar.status !== 'ACTIVE' && vihar.status !== 'COMPLETED') return false;
+        const activityDate = vihar.started_at || vihar.completed_at || vihar.created_at;
+        if (!activityDate) return false;
+        const date = new Date(activityDate);
+        return (
+          date.getFullYear() === today.getFullYear() &&
+          date.getMonth() === today.getMonth() &&
+          date.getDate() === today.getDate()
+        );
+      });
+
+      setStats({
+        totalVihars: completed.length,
+        totalDistanceKm: totalKm.toFixed(1),
+        todayDistance: todayVihar?.total_distance_km
+          ? `${Number(todayVihar.total_distance_km).toFixed(1)} km`
+          : null,
+        todayDuration: todayVihar ? formatViharDuration(todayVihar) : null,
+        deskPhone,
+      });
+    } catch (e) {
+      console.warn('[SevakHome] Fetch stats failed:', e);
+      setStatsError('Unable to load your Vihar activity. Pull to retry.');
+    }
+  }, [user, profile, loadViharState]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSevakStats();
+    }, [loadSevakStats])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -100,9 +151,10 @@ export const SevakHomeScreen = ({ navigation }) => {
   };
 
   const nextScheduled = scheduledVihars && scheduledVihars.length > 0 ? scheduledVihars[0] : null;
+  const safetyStatus = activeVihar?.safety_status || SAFETY_STATUS.SAFE;
 
   return (
-    <View style={styles.container}>
+    <View key={language} style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
 
       {/* Top Header */}
@@ -134,6 +186,8 @@ export const SevakHomeScreen = ({ navigation }) => {
           />
         }
       >
+        {statsError ? <Text style={styles.statsError}>{statsError}</Text> : null}
+
         {/* ACTIVE VIHAR LIVE CARD */}
         {activeVihar ? (
           <TouchableOpacity
@@ -183,15 +237,19 @@ export const SevakHomeScreen = ({ navigation }) => {
           </Text>
           <Text style={styles.greetingSubtitle}>
             {activeVihar
-              ? 'Active Vihar is being tracked live'
-              : 'Prepare for sacred Sadhviji Vihar Seva'}
+              ? t('home.active_tracking')
+              : t('home.prepare')}
           </Text>
 
           <View style={styles.greetingBtnRow}>
             <PrimaryButton
-              title={activeVihar ? "OPEN LIVE VIHAR →" : "START VIHAR NOW"}
+              title={activeVihar ? t('home.open_live_vihar') : t('home.start_vihar')}
               variant="saffron"
-              onPress={() => navigation.navigate('ViharTab')}
+              onPress={() =>
+                navigation.navigate('ViharTab', {
+                  openCreateMode: activeVihar ? undefined : 'NOW',
+                })
+              }
               style={styles.startViharBtn}
             />
           </View>
@@ -205,8 +263,8 @@ export const SevakHomeScreen = ({ navigation }) => {
               <CheckCircleIcon size={22} color={colors.gold} />
             </View>
             <Text style={styles.statNumber}>{stats.totalVihars}</Text>
-            <Text style={styles.statTitle}>Vihars Done</Text>
-            <Text style={styles.statSubtitle}>Completed Seva</Text>
+            <Text style={styles.statTitle}>{t('home.vihars_done')}</Text>
+            <Text style={styles.statSubtitle}>{t('home.completed_seva')}</Text>
           </View>
 
           {/* Box 2: Total Distance */}
@@ -217,8 +275,8 @@ export const SevakHomeScreen = ({ navigation }) => {
             <Text style={styles.statNumber}>
               {stats.totalDistanceKm} <Text style={styles.kmUnit}>km</Text>
             </Text>
-            <Text style={styles.statTitle}>Total Distance</Text>
-            <Text style={styles.statSubtitle}>Calculated Track</Text>
+            <Text style={styles.statTitle}>{t('home.total_distance')}</Text>
+            <Text style={styles.statSubtitle}>{t('home.calculated_track')}</Text>
           </View>
         </View>
 
@@ -226,19 +284,23 @@ export const SevakHomeScreen = ({ navigation }) => {
         <View style={[styles.statusBanner, shadows.subtle]}>
           <View style={styles.statusRow}>
             <ShieldIcon size={22} color={colors.statusSafe} />
-            <Text style={styles.statusText}>{t('sevak.safe_status')}</Text>
+            <Text style={styles.statusText}>
+              {safetyStatus === SAFETY_STATUS.SAFE
+                ? t('sevak.safe_status')
+                : safetyStatus.replace('_', ' ')}
+            </Text>
           </View>
-          <StatusBadge status={SAFETY_STATUS.SAFE} />
+          <StatusBadge status={safetyStatus} />
         </View>
 
         {/* 24x7 Women Safety & Emergency Dials Strip */}
         <View style={[styles.homeSafetyCard, shadows.subtle]}>
           <View style={styles.homeSafetyHeader}>
             <WomenSafetyShieldIcon size={20} color={colors.statusEmergency} />
-            <Text style={styles.homeSafetyTitle}>24x7 Women Safety & Emergency Dials</Text>
+            <Text style={styles.homeSafetyTitle}>{t('home.women_safety')}</Text>
           </View>
           <Text style={styles.homeSafetySubtitle}>
-            Direct 1-tap Gujarat emergency lines for early morning safety
+            {t('home.women_safety_subtitle')}
           </Text>
           <View style={styles.homeHelplineRow}>
             <TouchableOpacity
@@ -247,7 +309,7 @@ export const SevakHomeScreen = ({ navigation }) => {
               style={[styles.homeHelplineBtn, styles.policeBg]}
             >
               <PhoneIcon size={14} color="#FFFFFF" />
-              <Text style={styles.homeHelplineBtnText}>112 Police</Text>
+              <Text style={styles.homeHelplineBtnText}>{t('home.police')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -256,35 +318,39 @@ export const SevakHomeScreen = ({ navigation }) => {
               style={[styles.homeHelplineBtn, styles.abhayamBg]}
             >
               <WomenSafetyShieldIcon size={14} color="#FFFFFF" />
-              <Text style={styles.homeHelplineBtnText}>181 Abhayam</Text>
+              <Text style={styles.homeHelplineBtnText}>{t('home.abhayam')}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => Linking.openURL('tel:+919876500000')}
-              style={[styles.homeHelplineBtn, styles.deskBg]}
-            >
-              <PhoneIcon size={14} color="#FFFFFF" />
-              <Text style={styles.homeHelplineBtnText}>Vihar Desk</Text>
-            </TouchableOpacity>
+            {stats.deskPhone ? (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => Linking.openURL(`tel:${stats.deskPhone}`)}
+                style={[styles.homeHelplineBtn, styles.deskBg]}
+              >
+                <PhoneIcon size={14} color="#FFFFFF" />
+                <Text style={styles.homeHelplineBtnText}>{t('home.vihar_desk')}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
 
         {/* Today's Activity & Last Vihar Summary */}
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.sectionTitle}>Today's Activity</Text>
-          <Text style={styles.subSectionTitle}>Last Vihar</Text>
+          <Text style={styles.sectionTitle}>{t('home.todays_activity')}</Text>
+          <Text style={styles.subSectionTitle}>
+            {stats.todayDistance ? t('sevak.active_vihar') : t('home.no_vihar_today')}
+          </Text>
 
           <View style={styles.activityStats}>
             <View style={styles.statBox}>
-              <Text style={styles.activityLabel}>Distance</Text>
-              <Text style={styles.activityValue}>{stats.lastViharDistance}</Text>
+              <Text style={styles.activityLabel}>{t('home.distance')}</Text>
+              <Text style={styles.activityValue}>{stats.todayDistance || '-'}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={styles.activityLabel}>Duration</Text>
-              <Text style={styles.activityValue}>{stats.lastViharDuration}</Text>
+              <Text style={styles.activityLabel}>{t('home.duration')}</Text>
+              <Text style={styles.activityValue}>{stats.todayDuration || '-'}</Text>
             </View>
           </View>
         </View>
@@ -304,6 +370,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
+  },
+  statsError: {
+    ...typography.caption,
+    color: colors.statusEmergency,
+    marginBottom: spacing.md,
   },
   activeLiveBanner: {
     backgroundColor: colors.deepMaroon,

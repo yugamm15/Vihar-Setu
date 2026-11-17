@@ -110,10 +110,19 @@ export const useViharStore = create((set, get) => ({
    */
   completeActiveVihar: async (viharId, stats) => {
     set({ isLoading: true });
-    await viharService.completeVihar(viharId, stats);
+    const { data, error } = await viharService.completeVihar(viharId, stats);
+    if (error || !data) {
+      set({
+        isLoading: false,
+        error: error?.message || 'Failed to complete Vihar. Please try again.',
+      });
+      return false;
+    }
+
     set({
       activeVihar: null,
       isLoading: false,
+      error: null,
     });
     return true;
   },

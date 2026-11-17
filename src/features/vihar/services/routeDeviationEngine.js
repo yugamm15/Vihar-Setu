@@ -214,6 +214,15 @@ class RouteDeviationEngine {
     return () => this.listeners.delete(listener);
   }
 
+  reset() {
+    this.status = DEVIATION_STATUS.ON_TRACK;
+    this.currentDeviationMeters = 0;
+    this.deviationStartTime = null;
+    this.tier2Escalated = false;
+    this.tier3Escalated = false;
+    this._notifyListeners();
+  }
+
   _notifyListeners() {
     this.listeners.forEach((fn) => {
       try {

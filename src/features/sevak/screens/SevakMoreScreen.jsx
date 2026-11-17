@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -30,16 +30,20 @@ import {
 } from '../../../shared/components/CustomSvgIcons';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useAlertStore } from '../../../shared/hooks/useAlertStore';
-import { setAppLanguage, getAppLanguage, t } from '../../../core/localization/i18n';
+import { getAppLanguage, t } from '../../../core/localization/i18n';
 import { SimulationScreen } from '../../simulation/screens/SimulationScreen';
 
 export const SevakMoreScreen = ({ navigation }) => {
-  const { profile, logout } = useAuthStore();
+  const { profile, logout, changeLanguage, language } = useAuthStore();
   const { showAlert } = useAlertStore();
 
   const [activeModal, setActiveModal] = useState(null); // 'LANGUAGE' | 'ALARM' | 'GPS' | 'GUIDELINES' | 'HELP' | 'ABOUT'
-  const [currentLang, setCurrentLang] = useState(getAppLanguage());
+  const [currentLang, setCurrentLang] = useState(language || getAppLanguage());
   const [isSimModalOpen, setIsSimModalOpen] = useState(false);
+
+  useEffect(() => {
+    setCurrentLang(language || getAppLanguage());
+  }, [language]);
 
   // Alarm & Settings state
   const [alarm30MinEnabled, setAlarm30MinEnabled] = useState(true);
@@ -47,7 +51,7 @@ export const SevakMoreScreen = ({ navigation }) => {
   const [highAccuracyGps, setHighAccuracyGps] = useState(true);
 
   const handleLanguageChange = async (langCode) => {
-    await setAppLanguage(langCode);
+    await changeLanguage(langCode);
     setCurrentLang(langCode);
     setActiveModal(null);
     showAlert({
@@ -84,7 +88,7 @@ export const SevakMoreScreen = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
-        title="More Options"
+        title={t('more.title')}
         subtitle={profile?.full_name || 'Vihar Sevika'}
         showLogo
       />
@@ -111,7 +115,7 @@ export const SevakMoreScreen = ({ navigation }) => {
         </View>
 
         {/* Section 1: Preferences & Controls */}
-        <Text style={styles.sectionHeader}>Preferences & Controls</Text>
+        <Text style={styles.sectionHeader}>{t('more.preferences')}</Text>
         <View style={[styles.menuCard, shadows.card]}>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -122,7 +126,7 @@ export const SevakMoreScreen = ({ navigation }) => {
               <SettingsGearIcon size={20} color={colors.saffronDark} />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Language (ભાષા / भाषा)</Text>
+              <Text style={styles.menuTitle}>{t('more.language')}</Text>
               <Text style={styles.menuSub}>
                 {currentLang === 'gu'
                   ? 'ગુજરાતી (Gujarati)'
@@ -145,7 +149,7 @@ export const SevakMoreScreen = ({ navigation }) => {
               <AlertsBellIcon size={20} color={colors.statusEmergency} />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Alarm & Voice Alerts</Text>
+              <Text style={styles.menuTitle}>{t('more.alarm')}</Text>
               <Text style={styles.menuSub}>30-min pre-vihar alarm, chimes & voice</Text>
             </View>
             <Text style={styles.menuChevron}>›</Text>
@@ -162,7 +166,7 @@ export const SevakMoreScreen = ({ navigation }) => {
               <NavigationIcon size={20} color="#1976D2" />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>GPS & Telemetry Settings</Text>
+              <Text style={styles.menuTitle}>{t('more.gps')}</Text>
               <Text style={styles.menuSub}>Battery optimization & accuracy</Text>
             </View>
             <Text style={styles.menuChevron}>›</Text>
@@ -170,7 +174,7 @@ export const SevakMoreScreen = ({ navigation }) => {
         </View>
 
         {/* Section 2: Safety & Sacred Protocol */}
-        <Text style={styles.sectionHeader}>Safety & Guidelines</Text>
+        <Text style={styles.sectionHeader}>{t('more.safety')}</Text>
         <View style={[styles.menuCard, shadows.card]}>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -181,7 +185,7 @@ export const SevakMoreScreen = ({ navigation }) => {
               <ShieldIcon size={20} color={colors.statusSafe} />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Vihar Safety Guidelines</Text>
+              <Text style={styles.menuTitle}>{t('more.guidelines')}</Text>
               <Text style={styles.menuSub}>Walking etiquette, seva checklist & safety</Text>
             </View>
             <Text style={styles.menuChevron}>›</Text>
@@ -198,7 +202,7 @@ export const SevakMoreScreen = ({ navigation }) => {
               <HelpCircleIcon size={20} color={colors.goldDark} />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>24x7 Emergency Helpline</Text>
+              <Text style={styles.menuTitle}>{t('more.helpline')}</Text>
               <Text style={styles.menuSub}>Direct line to Surat Vihar Seva team</Text>
             </View>
             <Text style={styles.menuChevron}>›</Text>
@@ -215,7 +219,7 @@ export const SevakMoreScreen = ({ navigation }) => {
               <InfoIcon size={20} color={colors.deepMaroon} />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>About Vihar Setu</Text>
+              <Text style={styles.menuTitle}>{t('more.about')}</Text>
               <Text style={styles.menuSub}>Version 1.0.0 • Jinaarya Vihar Seva</Text>
             </View>
             <Text style={styles.menuChevron}>›</Text>
@@ -252,7 +256,7 @@ export const SevakMoreScreen = ({ navigation }) => {
           style={[styles.logoutCard, shadows.card]}
         >
           <LogoutIcon size={20} color={colors.statusEmergency} />
-          <Text style={styles.logoutText}>Logout of Account</Text>
+          <Text style={styles.logoutText}>{t('more.logout')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -275,7 +279,7 @@ export const SevakMoreScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Application Language</Text>
+              <Text style={styles.modalTitle}>{t('more.select_language')}</Text>
               <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.closeBtn}>
                 <CloseIcon size={20} color={colors.deepMaroon} />
               </TouchableOpacity>

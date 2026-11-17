@@ -117,13 +117,13 @@ export const OtpVerificationScreen = ({ route, navigation }) => {
         <View style={[styles.card, shadows.card]}>
           <Text style={styles.title}>{t('auth.otp_title')}</Text>
           <Text style={styles.subtitle}>
-            Enter the 6-digit verification code sent to{' '}
+            {t('auth.otp_subtitle')}{' '}
             <Text style={styles.emailHighlight}>{target || email}</Text>
           </Text>
 
           <CustomTextInput
-            label="Verification Code (OTP)"
-            placeholder="Enter 6-digit OTP code"
+            label={t('auth.otp_code_label')}
+            placeholder={t('auth.otp_code_placeholder')}
             value={otp}
             onChangeText={(text) => {
               setOtp(text);

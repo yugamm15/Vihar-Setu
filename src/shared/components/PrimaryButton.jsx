@@ -72,11 +72,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   iconContainer: {
     marginRight: spacing.sm,
   },
   text: {
     ...typography.button,
+    textAlign: 'center',
   },
 });
