@@ -1,6 +1,116 @@
 -- JINAARYA VIHAR SETU - Phase J.5 critical security remediation
 -- Additive migration. Apply only in an isolated verification database first.
 
+-- 0. PREREQUISITES: DEVICE STATUS, ADMIN PERMISSIONS & SCOPE HELPERS
+CREATE TABLE IF NOT EXISTS public.device_status (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    vihar_id UUID REFERENCES public.vihars(id) ON DELETE SET NULL,
+    battery_percentage INT,
+    is_charging BOOLEAN DEFAULT FALSE,
+    network_status TEXT DEFAULT 'ONLINE' CHECK (network_status IN ('ONLINE', 'OFFLINE', 'POOR_CONNECTIVITY')),
+    network_type TEXT DEFAULT 'CELLULAR',
+    gps_enabled BOOLEAN DEFAULT TRUE,
+    gps_accuracy_meters DECIMAL(6, 2) DEFAULT 5.0,
+    app_state TEXT DEFAULT 'FOREGROUND' CHECK (app_state IN ('FOREGROUND', 'BACKGROUND', 'TERMINATED')),
+    last_heartbeat TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id)
+);
+ALTER TABLE public.device_status ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_device_status_user ON public.device_status(user_id);
+CREATE INDEX IF NOT EXISTS idx_device_status_vihar ON public.device_status(vihar_id);
+
+CREATE TABLE IF NOT EXISTS public.admin_permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES public.administrators(id) ON DELETE CASCADE,
+    permission_key TEXT NOT NULL,
+    is_granted BOOLEAN DEFAULT TRUE,
+    granted_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(admin_id, permission_key)
+);
+ALTER TABLE public.admin_permissions ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.can_monitor_vihar(p_vihar_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    caller_id UUID := auth.uid();
+BEGIN
+    IF caller_id IS NULL THEN RETURN FALSE; END IF;
+
+    -- Super Admin
+    IF EXISTS (
+        SELECT 1 FROM public.user_roles ur JOIN public.roles r ON r.id = ur.role_id
+        WHERE ur.user_id = caller_id AND r.name = 'SUPER_ADMIN'
+    ) THEN RETURN TRUE; END IF;
+
+    -- Vihar Owner
+    IF EXISTS (
+        SELECT 1 FROM public.vihars v WHERE v.id = p_vihar_id AND v.user_id = caller_id
+    ) THEN RETURN TRUE; END IF;
+
+    -- Vihar Participant
+    IF EXISTS (
+        SELECT 1 FROM public.vihar_participants vp WHERE vp.vihar_id = p_vihar_id AND vp.user_id = caller_id AND vp.left_at IS NULL
+    ) THEN RETURN TRUE; END IF;
+
+    -- Assigned Area Administrator
+    IF EXISTS (
+        SELECT 1 FROM public.administrators ad
+        JOIN public.areas a ON a.id = ad.area_id AND a.is_active = TRUE
+        JOIN public.vihars v ON v.id = p_vihar_id
+        JOIN public.profiles p ON p.id = v.user_id
+        WHERE ad.user_id = caller_id AND ad.is_active = TRUE
+          AND (a.name = p.area OR a.city = p.city OR a.city = v.city)
+    ) THEN RETURN TRUE; END IF;
+
+    RETURN FALSE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_manage_vihar(p_vihar_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    caller_id UUID := auth.uid();
+BEGIN
+    IF caller_id IS NULL THEN RETURN FALSE; END IF;
+
+    -- Super Admin
+    IF EXISTS (
+        SELECT 1 FROM public.user_roles ur JOIN public.roles r ON r.id = ur.role_id
+        WHERE ur.user_id = caller_id AND r.name = 'SUPER_ADMIN'
+    ) THEN RETURN TRUE; END IF;
+
+    -- Vihar Owner
+    IF EXISTS (
+        SELECT 1 FROM public.vihars v WHERE v.id = p_vihar_id AND v.user_id = caller_id
+    ) THEN RETURN TRUE; END IF;
+
+    -- Assigned Area Administrator
+    IF EXISTS (
+        SELECT 1 FROM public.administrators ad
+        JOIN public.areas a ON a.id = ad.area_id AND a.is_active = TRUE
+        JOIN public.vihars v ON v.id = p_vihar_id
+        JOIN public.profiles p ON p.id = v.user_id
+        WHERE ad.user_id = caller_id AND ad.is_active = TRUE
+          AND (a.name = p.area OR a.city = p.city OR a.city = v.city)
+    ) THEN RETURN TRUE; END IF;
+
+    RETURN FALSE;
+END;
+$$;
+
 -- Device telemetry is written by the device owner. Administrators and Super
 -- Administrators may read only through the established Vihar monitoring scope.
 DROP POLICY IF EXISTS "Users can manage own device status" ON public.device_status;
