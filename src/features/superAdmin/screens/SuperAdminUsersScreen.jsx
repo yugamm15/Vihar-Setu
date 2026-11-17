@@ -13,7 +13,7 @@ import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { borderRadius, spacing } from '../../../core/theme/spacing';
 import { AppHeader } from '../../../shared/components/AppHeader';
-import { SearchIcon } from '../../../shared/components/CustomSvgIcons';
+import { SearchIcon, SettingsGearIcon } from '../../../shared/components/CustomSvgIcons';
 import { t } from '../../../core/localization/i18n';
 import { superAdminUserService } from '../services/superAdminUserService';
 import { SuperAdminUserCard } from '../components/SuperAdminUserCard';
@@ -77,7 +77,21 @@ export const SuperAdminUsersScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <AppHeader title={t('super_admin.users.title')} subtitle={`${t('super_admin.users.subtitle')} · ${total}`} />
+      <AppHeader
+        title={t('super_admin.users.title')}
+        subtitle={`${t('super_admin.users.subtitle')} · ${total}`}
+        showLogo
+        rightElement={
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('SuperAdminSettings')}
+            style={styles.headerButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <SettingsGearIcon size={20} color={colors.warmIvory} />
+          </TouchableOpacity>
+        }
+      />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -150,4 +164,12 @@ const styles = StyleSheet.create({
   errorText: { ...typography.bodySmall, color: colors.statusEmergency, textAlign: 'center' },
   retry: { ...typography.bodySmall, color: colors.deepMaroon, fontWeight: '800', marginTop: spacing.sm },
   paginationLoading: { marginVertical: spacing.md },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

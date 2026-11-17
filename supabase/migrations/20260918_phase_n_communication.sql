@@ -1,5 +1,27 @@
 -- Phase N: Super Admin communication, announcements, and notification read tracking.
 
+-- Prerequisites: ensure notifications table and required columns exist
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    vihar_id UUID REFERENCES public.vihars(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('EMERGENCY', 'DEVIATION', 'BATTERY', 'SAFETY_CHECK', 'HANDOVER', 'HOLD', 'SYSTEM', 'APPROVAL', 'POLICE_CALL')),
+    severity TEXT NOT NULL DEFAULT 'INFO' CHECK (severity IN ('INFO', 'WARNING', 'CRITICAL')),
+    metadata JSONB DEFAULT '{}'::jsonb,
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMPTZ,
+    notification_key TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS notification_key TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_key ON public.notifications(notification_key) WHERE notification_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON public.notifications(user_id, is_read);
+
 CREATE TABLE IF NOT EXISTS public.announcements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 200),

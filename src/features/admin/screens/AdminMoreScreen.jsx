@@ -42,7 +42,7 @@ import { useAlertStore } from '../../../shared/hooks/useAlertStore';
 import { adminService } from '../services/adminService';
 import { ROLES } from '../../../core/constants/roles';
 
-export const AdminMoreScreen = () => {
+export const AdminMoreScreen = ({ navigation }) => {
   const { user, profile, role, logout, switchRole } = useAuthStore();
   const { showAlert } = useAlertStore();
 
@@ -146,13 +146,17 @@ export const AdminMoreScreen = () => {
     }
   };
 
+  const canGoBack = Boolean(navigation?.canGoBack && navigation.canGoBack());
+
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
-        title="Admin Console"
-        subtitle="Regional Administration & Operations"
-        showLogo
+        title={isSuperAdmin ? 'Settings & Preferences' : 'Admin Console'}
+        subtitle={isSuperAdmin ? 'Profile, Security & App Configurations' : 'Regional Administration & Operations'}
+        showBack={canGoBack}
+        onBack={() => navigation?.goBack?.()}
+        showLogo={!canGoBack}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

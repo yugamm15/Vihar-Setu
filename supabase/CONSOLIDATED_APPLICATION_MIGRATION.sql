@@ -51,8 +51,10 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Add read_at column if notifications already existed
+-- Add read_at and notification_key columns if notifications already existed
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS notification_key TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_key ON public.notifications(notification_key) WHERE notification_key IS NOT NULL;
 
 -- 1.3 DEVICE STATUS TABLE (Real-Time Hardware, Battery & Telemetry Health)
 CREATE TABLE IF NOT EXISTS public.device_status (

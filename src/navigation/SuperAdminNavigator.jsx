@@ -178,6 +178,9 @@ const SuperAdminTabs = () => {
 export const SuperAdminNavigator = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="SuperAdminTabs" component={SuperAdminTabs} />
+    <Stack.Screen name="SuperAdminSettings" component={AdminMoreScreen} />
+    <Stack.Screen name="Settings" component={AdminMoreScreen} />
+    <Stack.Screen name="MoreTab" component={AdminMoreScreen} />
     <Stack.Screen name="SuperAdminAreaManagement" component={SuperAdminAreaManagementScreen} />
     <Stack.Screen name="SuperAdminUserDetails" component={SuperAdminUserDetailsScreen} />
     <Stack.Screen name="SuperAdminAdministrators" component={SuperAdminAdministratorsScreen} />

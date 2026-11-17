@@ -199,7 +199,12 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
         rightElement={
           <View style={styles.headerActions}>
             <NotificationBellButton />
-            <TouchableOpacity onPress={() => showUnavailable('Profile & Settings')} style={styles.headerButton}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('SuperAdminSettings')}
+              style={styles.headerButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <SettingsGearIcon size={20} color={colors.warmIvory} />
             </TouchableOpacity>
             <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>

@@ -28,6 +28,7 @@ import {
   CloseIcon,
   ShieldIcon,
   MapPinIcon,
+  SettingsGearIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { adminService } from '../services/adminService';
 import { authService } from '../../auth/services/authService';
@@ -246,6 +247,16 @@ export const AdminRequestsScreen = ({ navigation }) => {
         title="Sevak Requests"
         subtitle={isSuperAdmin ? 'Super Admin Verification & Approval' : 'Sevak Verification & Approval'}
         showLogo
+        rightElement={
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation?.navigate?.(isSuperAdmin ? 'SuperAdminSettings' : 'MoreTab')}
+            style={styles.headerButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <SettingsGearIcon size={20} color={colors.warmIvory} />
+          </TouchableOpacity>
+        }
       />
 
       {/* Top Search & Filter Bar */}
@@ -1375,5 +1386,13 @@ const styles = StyleSheet.create({
     color: colors.statusEmergency,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

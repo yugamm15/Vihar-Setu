@@ -18,16 +18,19 @@ import {
   AlertTriangleIcon,
   ShieldIcon,
   NavigationIcon,
+  SettingsGearIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { useAdminLiveStore } from '../hooks/useAdminLiveStore';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
+import { ROLES } from '../../../core/constants/roles';
 import { AdminLiveMap } from '../components/AdminLiveMap';
 import { AdminLiveBottomSheet } from '../components/AdminLiveBottomSheet';
 import { AdminCallActionModal } from '../components/AdminCallActionModal';
 import { t } from '../../../core/localization/i18n';
 
 export const AdminLiveTrackingScreen = ({ navigation }) => {
-  const { profile } = useAuthStore();
+  const { profile, role } = useAuthStore();
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
   const {
     areaName,
     activeVihars,
@@ -110,27 +113,37 @@ export const AdminLiveTrackingScreen = ({ navigation }) => {
         subtitle={`${areaName} Operational Area`}
         showLogo
         rightElement={
-          <View style={styles.connectionBadge}>
-            <View
-              style={[
-                styles.connectionDot,
-                {
-                  backgroundColor:
-                    connectionState === 'LIVE'
-                      ? colors.statusSafe
-                      : connectionState === 'RECONNECTING'
-                      ? colors.statusWarning
-                      : colors.statusOffline,
-                },
-              ]}
-            />
-            <Text style={styles.connectionText}>
-              {connectionState === 'LIVE'
-                ? 'LIVE'
-                : connectionState === 'RECONNECTING'
-                ? 'RECONNECTING'
-                : 'OFFLINE'}
-            </Text>
+          <View style={styles.headerRightActions}>
+            <View style={styles.connectionBadge}>
+              <View
+                style={[
+                  styles.connectionDot,
+                  {
+                    backgroundColor:
+                      connectionState === 'LIVE'
+                        ? colors.statusSafe
+                        : connectionState === 'RECONNECTING'
+                        ? colors.statusWarning
+                        : colors.statusOffline,
+                  },
+                ]}
+              />
+              <Text style={styles.connectionText}>
+                {connectionState === 'LIVE'
+                  ? 'LIVE'
+                  : connectionState === 'RECONNECTING'
+                  ? 'RECONNECTING'
+                  : 'OFFLINE'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate(isSuperAdmin ? 'SuperAdminSettings' : 'MoreTab')}
+              style={styles.headerButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <SettingsGearIcon size={20} color={colors.warmIvory} />
+            </TouchableOpacity>
           </View>
         }
       />
@@ -399,5 +412,18 @@ const styles = StyleSheet.create({
   loadingText: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

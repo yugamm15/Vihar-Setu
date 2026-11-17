@@ -21,6 +21,7 @@ import {
   UserIcon,
   CheckCircleIcon,
   PhoneIcon,
+  SettingsGearIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { superAdminAreaService } from '../services/superAdminAreaService';
 
@@ -162,6 +163,16 @@ export const SuperAdminAreaManagementScreen = ({ navigation }) => {
         title="Area Management"
         subtitle={`Jurisdictions & Sectors · ${activeAreasCount} Active`}
         showLogo
+        rightElement={
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('SuperAdminSettings')}
+            style={styles.headerButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <SettingsGearIcon size={20} color={colors.warmIvory} />
+          </TouchableOpacity>
+        }
       />
 
       <ScrollView
@@ -766,5 +777,13 @@ const styles = StyleSheet.create({
   },
   restoreButtonText: {
     color: colors.statusSafe,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

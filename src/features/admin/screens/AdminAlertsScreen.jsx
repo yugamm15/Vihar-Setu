@@ -21,13 +21,18 @@ import {
   CheckCircleIcon,
   ShieldIcon,
   CloseIcon,
+  SettingsGearIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { viharService } from '../../vihar/services/viharService';
 import { adminService } from '../services/adminService';
 import { policeEmergencyService } from '../../vihar/services/policeEmergencyService';
+import { useAuthStore } from '../../auth/hooks/useAuthStore';
+import { ROLES } from '../../../core/constants/roles';
 
-export const AdminAlertsScreen = () => {
+export const AdminAlertsScreen = ({ navigation }) => {
+  const { role } = useAuthStore();
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
   const [alerts, setAlerts] = useState([]);
   const [activeTab, setActiveTab] = useState('ACTIVE'); // ACTIVE | RESOLVED | ALL
   const [resolvedModalVisible, setResolvedModalVisible] = useState(false);
@@ -120,6 +125,16 @@ export const AdminAlertsScreen = () => {
         title="Alerts Center"
         subtitle="Safety & Emergency Response Monitoring"
         showLogo
+        rightElement={
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation?.navigate?.(isSuperAdmin ? 'SuperAdminSettings' : 'MoreTab')}
+            style={styles.headerButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <SettingsGearIcon size={20} color={colors.warmIvory} />
+          </TouchableOpacity>
+        }
       />
 
       <View style={styles.tabBar}>
@@ -549,5 +564,13 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     width: '100%',
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
