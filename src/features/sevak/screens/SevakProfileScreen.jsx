@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,9 @@ import {
   Image,
   TextInput,
   FlatList,
-  Keyboard,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
@@ -45,8 +45,20 @@ const LANGUAGES = [
   { code: 'en', label: 'English' },
 ];
 
+const getEmergencyContactName = (profile) => {
+  const name = profile?.emergency_contact_name?.trim();
+  if (
+    !name ||
+    name.toLowerCase() === 'emergency contact' ||
+    name === 'Vihar Coordination Office'
+  ) {
+    return '';
+  }
+  return name;
+};
+
 export const SevakProfileScreen = () => {
-  const modalScrollRef = useRef(null);
+  const insets = useSafeAreaInsets();
   const { profile, user, updateProfileDetails, changeLanguage, language, logout } =
     useAuthStore();
   const { showAlert } = useAlertStore();
@@ -59,7 +71,7 @@ export const SevakProfileScreen = () => {
   const [age, setAge] = useState(profile?.age ? String(profile.age) : '35');
   const [gender, setGender] = useState(profile?.gender || 'Female');
   const [emergencyName, setEmergencyName] = useState(
-    profile?.emergency_contact_name || 'Vihar Coordination Office'
+    getEmergencyContactName(profile)
   );
   const [emergencyPhone, setEmergencyPhone] = useState(
     profile?.emergency_contact_phone || '9876543211'
@@ -68,8 +80,6 @@ export const SevakProfileScreen = () => {
   const [interestedInAdmin, setInterestedInAdmin] = useState(
     Boolean(profile?.interested_in_administrator)
   );
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
   // Avatar Selection State
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [selectedAvatarId, setSelectedAvatarId] = useState(
@@ -87,27 +97,6 @@ export const SevakProfileScreen = () => {
   const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
-  // Dynamic Keyboard Listeners
-  useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   const filteredAreas = SURAT_AREAS.filter((a) =>
     a.toLowerCase().includes(areaSearch.toLowerCase().trim())
   );
@@ -122,7 +111,7 @@ export const SevakProfileScreen = () => {
     setArea(profile?.area || 'Adajan');
     setAge(profile?.age ? String(profile.age) : '35');
     setGender(profile?.gender || 'Female');
-    setEmergencyName(profile?.emergency_contact_name || 'Vihar Coordination Office');
+    setEmergencyName(getEmergencyContactName(profile));
     setEmergencyPhone(profile?.emergency_contact_phone || '9876543211');
     setBloodGroup(profile?.blood_group || 'B+');
     setInterestedInAdmin(Boolean(profile?.interested_in_administrator));
@@ -131,6 +120,8 @@ export const SevakProfileScreen = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (isSaving) return;
+
     if (!fullName.trim()) {
       showAlert({
         type: 'WARNING',
@@ -141,12 +132,11 @@ export const SevakProfileScreen = () => {
       return;
     }
 
-    const cleanEmergencyPhone = emergencyPhone.replace(/[^0-9]/g, '');
-    if (cleanEmergencyPhone.length !== 10) {
+    if (!area || !area.trim()) {
       showAlert({
         type: 'WARNING',
-        title: 'Invalid Number',
-        message: 'Please enter a valid 10-digit emergency contact number.',
+        title: 'Required',
+        message: 'Please select your area in Surat.',
         confirmText: 'OK',
       });
       return;
@@ -157,26 +147,65 @@ export const SevakProfileScreen = () => {
       showAlert({
         type: 'WARNING',
         title: 'Invalid Age',
-        message: 'Please enter an age between 16 and 90.',
+        message: 'Please enter a valid age between 16 and 90.',
+        confirmText: 'OK',
+      });
+      return;
+    }
+
+    if (!emergencyName || !emergencyName.trim()) {
+      showAlert({
+        type: 'WARNING',
+        title: 'Required',
+        message: 'Please enter the name of your emergency contact person.',
+        confirmText: 'OK',
+      });
+      return;
+    }
+
+    let cleanEmergencyPhone = emergencyPhone.replace(/[^0-9]/g, '');
+    if (cleanEmergencyPhone.startsWith('91') && cleanEmergencyPhone.length === 12) {
+      cleanEmergencyPhone = cleanEmergencyPhone.slice(2);
+    } else if (cleanEmergencyPhone.startsWith('0') && cleanEmergencyPhone.length === 11) {
+      cleanEmergencyPhone = cleanEmergencyPhone.slice(1);
+    }
+
+    if (cleanEmergencyPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanEmergencyPhone)) {
+      showAlert({
+        type: 'WARNING',
+        title: 'Invalid Number',
+        message: 'Please enter a valid 10-digit emergency contact mobile number (e.g. +91 9876543210).',
         confirmText: 'OK',
       });
       return;
     }
 
     setIsSaving(true);
-    const success = await updateProfileDetails({
-      full_name: fullName.trim(),
-      city: 'Surat',
-      area: area.trim(),
-      age: parsedAge,
-      gender: gender,
-      emergency_contact_name: emergencyName.trim(),
-      emergency_contact_phone: emergencyPhone.trim(),
-      blood_group: bloodGroup.trim(),
-      preferred_language: language,
-      interested_in_administrator: interestedInAdmin,
-    });
-    setIsSaving(false);
+    let success;
+    try {
+      success = await updateProfileDetails({
+        full_name: fullName.trim(),
+        city: 'Surat',
+        area: area.trim(),
+        age: parsedAge,
+        gender: gender,
+        emergency_contact_name: emergencyName.trim(),
+        emergency_contact_phone: cleanEmergencyPhone,
+        blood_group: bloodGroup.trim(),
+        preferred_language: language,
+        interested_in_administrator: interestedInAdmin,
+      });
+    } catch (error) {
+      showAlert({
+        type: 'ERROR',
+        title: 'Unable to Save',
+        message: error?.message || 'Failed to update profile. Please try again.',
+        confirmText: 'OK',
+      });
+      return;
+    } finally {
+      setIsSaving(false);
+    }
 
     if (success) {
       setSaveSuccessMsg('Profile updated successfully.');
@@ -263,6 +292,8 @@ export const SevakProfileScreen = () => {
             activeOpacity={0.85}
             onPress={() => setIsAvatarModalOpen(true)}
             style={styles.avatarGlowRing}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile avatar"
           >
             <View
               style={[
@@ -276,8 +307,10 @@ export const SevakProfileScreen = () => {
             </View>
           </TouchableOpacity>
 
-          <Text style={styles.userName}>{profile?.full_name || 'Vihar Sevika'}</Text>
-          <Text style={styles.userCity}>
+          <Text style={styles.userName} numberOfLines={1} adjustsFontSizeToFit>
+            {profile?.full_name || 'Vihar Sevika'}
+          </Text>
+          <Text style={styles.userCity} numberOfLines={2}>
             {profile?.area ? `${profile.area}, ` : ''}
             {profile?.city || 'Surat'}, Gujarat
           </Text>
@@ -285,7 +318,14 @@ export const SevakProfileScreen = () => {
           <View style={styles.roleBadgeRow}>
             <View style={styles.verifiedRoleBadge}>
               <CheckCircleIcon size={16} color={colors.statusSafe} />
-              <Text style={styles.verifiedRoleText}>{t('profile.verified')}</Text>
+              <Text
+                style={styles.verifiedRoleText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {t('profile.verified')}
+              </Text>
+              <View style={styles.verifiedRoleIconSpacer} />
             </View>
           </View>
 
@@ -294,6 +334,7 @@ export const SevakProfileScreen = () => {
               activeOpacity={0.8}
               onPress={openEditModal}
               style={styles.editProfileChip}
+              accessibilityRole="button"
             >
               <Text style={styles.editProfileChipText}>{t('profile.edit')}</Text>
             </TouchableOpacity>
@@ -302,6 +343,7 @@ export const SevakProfileScreen = () => {
               activeOpacity={0.8}
               onPress={() => setIsAvatarModalOpen(true)}
               style={styles.avatarPickerChip}
+              accessibilityRole="button"
             >
               <Text style={styles.avatarPickerChipText}>{t('profile.avatar')}</Text>
             </TouchableOpacity>
@@ -394,7 +436,7 @@ export const SevakProfileScreen = () => {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Contact Person</Text>
             <Text style={styles.infoValue}>
-              {profile?.emergency_contact_name || 'Vihar Coordination Office'}
+              {getEmergencyContactName(profile) || 'Not provided'}
             </Text>
           </View>
           <View style={styles.divider} />
@@ -488,7 +530,13 @@ export const SevakProfileScreen = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={[styles.modalCard, shadows.card]}>
+          <View
+            style={[
+              styles.modalCard,
+              { paddingBottom: Math.max(insets.bottom, spacing.xl) },
+              shadows.card,
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Sevak Profile</Text>
               <TouchableOpacity
@@ -500,14 +548,8 @@ export const SevakProfileScreen = () => {
             </View>
 
             <ScrollView
-              ref={modalScrollRef}
-              contentContainerStyle={[
-                styles.modalScroll,
-                {
-                  paddingBottom:
-                    keyboardHeight > 0 ? keyboardHeight + 20 : spacing.lg,
-                },
-              ]}
+              style={styles.modalFormScroll}
+              contentContainerStyle={styles.modalScroll}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
             >
@@ -614,32 +656,18 @@ export const SevakProfileScreen = () => {
 
               <CustomTextInput
                 label="Emergency Contact Person *"
-                placeholder="Name of family member / Sangha coordinator"
+                placeholder="Emergency Contact"
                 value={emergencyName}
                 onChangeText={setEmergencyName}
-                onFocus={() =>
-                  setTimeout(
-                    () =>
-                      modalScrollRef.current?.scrollToEnd({ animated: true }),
-                    100
-                  )
-                }
               />
 
               <CustomTextInput
                 label="Emergency Contact Phone *"
-                placeholder="10-digit mobile number"
+                placeholder="+91 98765 43210"
                 value={emergencyPhone}
                 onChangeText={setEmergencyPhone}
                 keyboardType="phone-pad"
-                maxLength={10}
-                onFocus={() =>
-                  setTimeout(
-                    () =>
-                      modalScrollRef.current?.scrollToEnd({ animated: true }),
-                    100
-                  )
-                }
+                maxLength={16}
               />
 
               {/* Administrator Interest Option (Phase 10 & 11) */}
@@ -670,22 +698,22 @@ export const SevakProfileScreen = () => {
                   </Text>
                 </View>
               </TouchableOpacity>
-
-              <View style={styles.modalBtnRow}>
-                <SecondaryButton
-                  title="Cancel"
-                  onPress={() => setIsEditModalOpen(false)}
-                  style={styles.modalCancelBtn}
-                />
-                <PrimaryButton
-                  title="Save Changes"
-                  variant="saffron"
-                  loading={isSaving}
-                  onPress={handleSaveProfile}
-                  style={styles.modalSaveBtn}
-                />
-              </View>
             </ScrollView>
+
+            <View style={styles.modalBtnRow}>
+              <SecondaryButton
+                title="Cancel"
+                onPress={() => setIsEditModalOpen(false)}
+                style={styles.modalCancelBtn}
+              />
+              <PrimaryButton
+                title="Save Changes"
+                variant="saffron"
+                loading={isSaving}
+                onPress={handleSaveProfile}
+                style={styles.modalSaveBtn}
+              />
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -845,11 +873,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl,
   },
   profileCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
+    padding: spacing.lg,
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.cardBorder,
     marginBottom: spacing.lg,
   },
@@ -877,11 +905,14 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.deepMaroon,
     marginBottom: 2,
+    maxWidth: '100%',
+    textAlign: 'center',
   },
   userCity: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
   roleBadgeRow: {
     flexDirection: 'row',
@@ -890,44 +921,59 @@ const styles = StyleSheet.create({
   verifiedRoleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
     backgroundColor: 'rgba(56, 142, 60, 0.12)',
     paddingVertical: 4,
     paddingHorizontal: spacing.md,
+    minWidth: 152,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: 'rgba(56, 142, 60, 0.3)',
+  },
+  verifiedRoleIconSpacer: {
+    width: 16,
   },
   verifiedRoleText: {
     ...typography.caption,
     color: colors.statusSafe,
     fontWeight: '700',
     letterSpacing: 0.5,
+    flex: 1,
+    textAlign: 'center',
   },
   profileActionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+    width: '100%',
   },
   editProfileChip: {
-    backgroundColor: colors.softCream,
-    paddingVertical: 7,
+    flex: 1,
+    minHeight: 44,
+    backgroundColor: colors.deepMaroon,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: colors.deepMaroon,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   editProfileChipText: {
     ...typography.caption,
-    color: colors.deepMaroon,
+    color: colors.warmIvory,
     fontWeight: '700',
   },
   avatarPickerChip: {
-    backgroundColor: '#FFF8E7',
-    paddingVertical: 7,
+    flex: 1,
+    minHeight: 44,
+    backgroundColor: colors.softCream,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarPickerChipText: {
     ...typography.caption,
@@ -1057,6 +1103,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     padding: spacing.xl,
+    height: '90%',
     maxHeight: '90%',
   },
   modalHeader: {
@@ -1079,6 +1126,9 @@ const styles = StyleSheet.create({
   },
   modalScroll: {
     paddingBottom: spacing.xxl,
+  },
+  modalFormScroll: {
+    flex: 1,
   },
   successBanner: {
     backgroundColor: 'rgba(56, 142, 60, 0.12)',

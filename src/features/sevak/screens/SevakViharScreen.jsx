@@ -13,6 +13,7 @@ import {
   Platform,
   Linking,
 } from 'react-native';
+import { SafeMapView } from '../../../shared/components/SafeMapView';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
@@ -142,6 +143,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
   const [activeHold, setActiveHold] = useState(null);
   const [holdModalVisible, setHoldModalVisible] = useState(false);
   const [holdElapsedMins, setHoldElapsedMins] = useState(0);
+  const [isResumingHold, setIsResumingHold] = useState(false);
 
   // Physical Deterrents State
   const [isSirenActive, setIsSirenActive] = useState(false);
@@ -332,15 +334,26 @@ export const SevakViharScreen = ({ navigation, route }) => {
     setShowHeartbeatModal(false);
     if (!user?.id) return;
 
-    await triggerEmergency({
+    const emergency = await triggerEmergency({
       userId: user.id,
       viharId: activeVihar?.id,
       latitude: activeVihar?.source_lat || 21.1959,
       longitude: activeVihar?.source_lng || 72.7933,
-      batteryPercentage: 88,
+      batteryPercentage: telemetry.batteryPercentage || 100,
       triggerType: 'HEARTBEAT_MISSED',
       notes: 'Automated Women Safety Alert: Periodic Safety Heartbeat check was missed during Vihar',
     });
+
+    if (!emergency) {
+      showAlert({
+        type: 'ERROR',
+        title: t('vihar.sos_failed_title'),
+        message: useViharStore.getState().error || t('vihar.sos_failed_message'),
+        confirmText: t('common.confirm'),
+        confirmVariant: 'emergency',
+      });
+      return;
+    }
 
     adminService.notifyListeners();
     showAlert({
@@ -382,8 +395,8 @@ export const SevakViharScreen = ({ navigation, route }) => {
   const availableTimePresets =
     selectedDate === 'Today'
       ? VIHAR_TIME_PRESETS.filter(
-          (time) => getTimeMinutes(time) > new Date().getHours() * 60 + new Date().getMinutes()
-        )
+        (time) => getTimeMinutes(time) > new Date().getHours() * 60 + new Date().getMinutes()
+      )
       : VIHAR_TIME_PRESETS;
 
   useEffect(() => {
@@ -444,8 +457,8 @@ export const SevakViharScreen = ({ navigation, route }) => {
       selectedDate === 'Today'
         ? getLocalDateKey()
         : selectedDate === 'Tomorrow'
-        ? getLocalDateKey(new Date(Date.now() + 24 * 60 * 60 * 1000))
-        : customDate;
+          ? getLocalDateKey(new Date(Date.now() + 24 * 60 * 60 * 1000))
+          : customDate;
 
     const payload = {
       title: `Vihar to ${destUpashray.name}`,
@@ -525,22 +538,33 @@ export const SevakViharScreen = ({ navigation, route }) => {
     setSosModalVisible(false);
     if (!user?.id) return;
 
-    await triggerEmergency({
+    const emergency = await triggerEmergency({
       userId: user.id,
       viharId: activeVihar?.id,
       latitude: activeVihar?.source_lat || 21.1959,
       longitude: activeVihar?.source_lng || 72.7933,
-      batteryPercentage: 88,
+      batteryPercentage: telemetry.batteryPercentage || 100,
       triggerType: 'MANUAL_SOS',
       notes: 'Immediate women safety assistance requested during Vihar seva in Surat',
     });
 
+    if (!emergency) {
+      showAlert({
+        type: 'ERROR',
+        title: t('vihar.sos_failed_title'),
+        message: useViharStore.getState().error || t('vihar.sos_failed_message'),
+        confirmText: t('common.confirm'),
+        confirmVariant: 'emergency',
+      });
+      return;
+    }
+
     adminService.notifyListeners();
     showAlert({
       type: 'ERROR',
-      title: 'Emergency SOS Dispatched',
-      message: 'High-priority alert has been broadcast to regional safety administrators and nearby Sevaks with your live coordinates.',
-      confirmText: 'Open Emergency Center',
+      title: t('vihar.sos_dispatched_title'),
+      message: t('vihar.sos_dispatched_message'),
+      confirmText: t('common.confirm'),
       confirmVariant: 'emergency',
     });
   };
@@ -552,17 +576,28 @@ export const SevakViharScreen = ({ navigation, route }) => {
     setIsStrobeActive(false);
 
     if (activeEmergency?.id || activeVihar?.id) {
-      await disarmEmergency(
+      const disarmed = await disarmEmergency(
         activeEmergency?.id,
         activeVihar?.id,
         reason || 'False Alarm - Sevika & Sadhviji Safe'
       );
+      if (!disarmed) {
+        showAlert({
+          type: 'ERROR',
+          title: t('vihar.sos_failed_title'),
+          message: useViharStore.getState().error || t('vihar.sos_failed_message'),
+          confirmText: t('common.confirm'),
+          confirmVariant: 'emergency',
+        });
+        return;
+      }
+
       adminService.notifyListeners();
       showAlert({
         type: 'SUCCESS',
-        title: 'Emergency Disarmed',
-        message: 'Safety status has been restored to SAFE. Audit record preserved.',
-        confirmText: 'Jai Jinendra',
+        title: t('vihar.emergency_disarmed_title'),
+        message: t('vihar.emergency_disarmed_message'),
+        confirmText: t('common.confirm'),
         confirmVariant: 'saffron',
       });
     }
@@ -609,17 +644,39 @@ export const SevakViharScreen = ({ navigation, route }) => {
   };
 
   const handleResumeVihar = async () => {
-    if (!activeHold?.id || !activeVihar?.id) return;
-    const { success, durationMinutes, error } = await holdService.resumeVihar({
-      holdId: activeHold.id,
-      viharId: activeVihar.id,
-      holdStartTime: activeHold.hold_start,
-    });
+    if (isResumingHold) return;
+    if (!activeHold?.id || !activeVihar?.id) {
+      showAlert({
+        type: 'ERROR',
+        title: 'Resume Failed',
+        message: 'The active hold could not be identified. Please refresh and try again.',
+        confirmText: 'OK',
+      });
+      return;
+    }
 
-    if (success) {
+    setIsResumingHold(true);
+    try {
+      const { success, durationMinutes, error } = await holdService.resumeVihar({
+        holdId: activeHold.id,
+        viharId: activeVihar.id,
+        holdStartTime: activeHold.hold_start,
+      });
+
+      if (!success) {
+        showAlert({
+          type: 'ERROR',
+          title: 'Resume Failed',
+          message: error?.message || 'Could not resume Vihar. Please retry.',
+          confirmText: 'OK',
+        });
+        return;
+      }
+
       setActiveHold(null);
       routeDeviationEngine.reset();
       stationaryWatchdogService.reset();
+      await loadViharState(user.id);
       showAlert({
         type: 'SUCCESS',
         title: 'Vihar Resumed',
@@ -627,18 +684,29 @@ export const SevakViharScreen = ({ navigation, route }) => {
         confirmText: 'Jai Jinendra',
         confirmVariant: 'saffron',
       });
-    } else {
-      showAlert({
-        type: 'ERROR',
-        title: 'Resume Failed',
-        message: error?.message || 'Could not resume Vihar. Please retry.',
-        confirmText: 'OK',
-      });
+    } finally {
+      setIsResumingHold(false);
     }
   };
 
   const isEmergencyActive =
     Boolean(activeEmergency) || activeVihar?.safety_status === 'EMERGENCY';
+
+  const liveCoordinate = telemetry.lastPosition
+    ? {
+      latitude: telemetry.lastPosition.latitude,
+      longitude: telemetry.lastPosition.longitude,
+    }
+    : null;
+  const sourceCoordinate = {
+    latitude: activeVihar?.source_lat || 21.1959,
+    longitude: activeVihar?.source_lng || 72.7933,
+  };
+  const destinationCoordinate = {
+    latitude: activeVihar?.dest_lat || 21.1442,
+    longitude: activeVihar?.dest_lng || 72.7758,
+  };
+  const mapCenter = liveCoordinate || sourceCoordinate;
 
   return (
     <View key={language} style={styles.container}>
@@ -693,6 +761,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
                   activeOpacity={0.85}
                   style={styles.resumeHoldBtn}
                   onPress={handleResumeVihar}
+                  disabled={isResumingHold}
                 >
                   <CheckCircleIcon size={18} color={colors.white} />
                   <Text style={styles.resumeHoldBtnText}>{t('vihar.resume_action')}</Text>
@@ -733,19 +802,29 @@ export const SevakViharScreen = ({ navigation, route }) => {
 
             {/* 2. Live Map Card */}
             <View style={[styles.mapCard, shadows.card]}>
-              <View style={styles.liveBadgeRow}>
-                <View style={styles.livePulseDot} />
-                <Text style={styles.liveBadgeText}>LIVE GPS TRACKING ACTIVE</Text>
+              <View style={styles.mapCardHeaderRow}>
+                <View style={styles.liveBadgeRow}>
+                  <View style={styles.livePulseDot} />
+                  <Text style={styles.liveBadgeText}>{t('vihar.live_gps_active')}</Text>
+                </View>
+                <View style={styles.viharTypeBadge}>
+                  <Text style={styles.viharTypeBadgeText}>{t('vihar.walking_vihar')}</Text>
+                </View>
               </View>
 
-              <View style={styles.iconCircle}>
-                <NavigationIcon size={38} color={colors.gold} />
-              </View>
-
-              <Text style={styles.mapTitle}>Route Navigation Active</Text>
-              <Text style={styles.mapSubtitle}>
+              <Text style={styles.mapTitle}>{t('vihar.route_nav_active')}</Text>
+              <Text style={styles.mapSubtitle} numberOfLines={2}>
                 {activeVihar.source_name} → {activeVihar.dest_name}
               </Text>
+
+              <SafeMapView
+                sourceCoordinate={sourceCoordinate}
+                destinationCoordinate={destinationCoordinate}
+                liveCoordinate={liveCoordinate}
+                sourceName={activeVihar.source_name}
+                destinationName={activeVihar.dest_name}
+                accuracy={telemetry.lastPosition?.accuracy || 10}
+              />
 
               {/* Phase 16 & 17: Dynamic Hardware & Telemetry Bar */}
               <View style={styles.telemetryBar}>
@@ -758,13 +837,13 @@ export const SevakViharScreen = ({ navigation, route }) => {
                           telemetry.gpsStatus === GPS_STATUS.ACTIVE
                             ? colors.statusSafe
                             : telemetry.gpsStatus === GPS_STATUS.WEAK
-                            ? colors.statusWarning
-                            : colors.statusEmergency,
+                              ? colors.statusWarning
+                              : colors.statusEmergency,
                       },
                     ]}
                   />
                   <Text style={styles.telemetryText}>
-                    GPS: {telemetry.gpsStatus === GPS_STATUS.ACTIVE ? `${Math.round(telemetry.lastPosition?.accuracy || 5)}m` : telemetry.gpsStatus}
+                    {t('vihar.gps')} {telemetry.gpsStatus === GPS_STATUS.ACTIVE ? `${Math.round(telemetry.lastPosition?.accuracy || 5)}m` : telemetry.gpsStatus}
                   </Text>
                 </View>
 
@@ -776,13 +855,13 @@ export const SevakViharScreen = ({ navigation, route }) => {
                     ]}
                   />
                   <Text style={styles.telemetryText}>
-                    {offlineStatus.isOnline ? 'Online' : `Offline (${offlineStatus.pendingCount})`}
+                    {offlineStatus.isOnline ? t('vihar.online') : `${t('vihar.offline')} (${offlineStatus.pendingCount})`}
                   </Text>
                 </View>
 
                 <View style={styles.telemetryItemRow}>
                   <Text style={styles.telemetryText}>
-                    Bat: {telemetry.batteryPercentage}%{telemetry.isCharging ? ' ⚡' : ''}{telemetry.isPowerSaverActive ? ' (Eco)' : ''}
+                    {t('vihar.battery')} {telemetry.batteryPercentage}%{telemetry.isCharging ? ' ⚡' : ''}{telemetry.isPowerSaverActive ? ' (Eco)' : ''}
                   </Text>
                 </View>
               </View>
@@ -796,10 +875,10 @@ export const SevakViharScreen = ({ navigation, route }) => {
                 </View>
                 <View style={styles.securityStatusTextCol}>
                   <Text style={styles.securityStatusTitle}>
-                    Women Safety Telemetry Active
+                    {t('vihar.safety_telemetry_active')}
                   </Text>
                   <Text style={styles.securityStatusSub}>
-                    Encrypted live tracking • Anti-stalking guard enabled
+                    {t('vihar.safety_telemetry_sub')}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -807,40 +886,40 @@ export const SevakViharScreen = ({ navigation, route }) => {
                   onPress={() => setShowHeartbeatModal(true)}
                   style={styles.safetyCheckPill}
                 >
-                  <Text style={styles.safetyCheckPillText}>Check-In</Text>
+                  <Text style={styles.safetyCheckPillText}>{t('vihar.check_in')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* 4. Vihar Route Metrics */}
             <View style={[styles.card, shadows.card]}>
-              <Text style={styles.cardHeader}>DESTINATION UPASHRAY</Text>
+              <Text style={styles.cardHeader}>{t('vihar.destination_upashray')}</Text>
               <Text style={styles.destinationName}>{activeVihar.dest_name}</Text>
 
               <View style={styles.metricRow}>
                 <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Distance</Text>
+                  <Text style={styles.metricLabel}>{t('home.distance')}</Text>
                   <Text style={styles.metricValue}>
                     {activeVihar.total_distance_km || '4.5'} km
                   </Text>
                 </View>
                 <View style={styles.metricDivider} />
                 <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Est. Duration</Text>
+                  <Text style={styles.metricLabel}>{t('vihar.estimated_duration')}</Text>
                   <Text style={styles.metricValue}>
                     {activeVihar.estimated_duration_mins || '60'} mins
                   </Text>
                 </View>
                 <View style={styles.metricDivider} />
                 <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Avg Speed</Text>
+                  <Text style={styles.metricLabel}>{t('vihar.avg_speed')}</Text>
                   <Text style={styles.metricValue}>4.2 km/h</Text>
                 </View>
               </View>
 
               {activeVihar.notes ? (
                 <View style={styles.notesBox}>
-                  <Text style={styles.notesText}>Notes: {activeVihar.notes}</Text>
+                  <Text style={styles.notesText}>{t('vihar.notes')} {activeVihar.notes}</Text>
                 </View>
               ) : null}
             </View>
@@ -848,8 +927,8 @@ export const SevakViharScreen = ({ navigation, route }) => {
             {/* 5. Emergency SOS Button (If not already triggered) */}
             {!isEmergencyActive ? (
               <EmergencyButton
-                title="SOS EMERGENCY"
-                subtitle="1-Touch immediate alert to Surat Safety Control Room & 112/181"
+                title="SOS"
+                subtitle={t('vihar.sos_btn_subtitle')}
                 onPress={() => setSosModalVisible(true)}
                 style={styles.sosButton}
               />
@@ -1018,50 +1097,50 @@ export const SevakViharScreen = ({ navigation, route }) => {
                   const { date, time } = getScheduledDateTime(vihar.notes);
                   const alarmInfo = alarmService.getAlarmTime(date, time);
                   return (
-                  <View key={vihar.id} style={[styles.scheduledCard, shadows.card]}>
-                    <View style={styles.scheduledCardHeader}>
-                      <View style={styles.scheduledTimeBadge}>
-                        <Text style={styles.scheduledTimeText}>
-                          Upcoming Vihar
+                    <View key={vihar.id} style={[styles.scheduledCard, shadows.card]}>
+                      <View style={styles.scheduledCardHeader}>
+                        <View style={styles.scheduledTimeBadge}>
+                          <Text style={styles.scheduledTimeText}>
+                            Upcoming Vihar
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => cancelScheduled(vihar.id)}
+                          style={styles.cancelChip}
+                        >
+                          <Text style={styles.cancelChipText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={styles.scheduledRouteText}>
+                        {vihar.source_name} → {vihar.dest_name}
+                      </Text>
+
+                      <View style={styles.alarmNoticeBox}>
+                        <Text style={styles.alarmNoticeTag}>ALARM ACTIVE</Text>
+                        <Text style={styles.alarmNoticeText}>
+                          {t('vihar.scheduled_alarm', {
+                            time: alarmInfo.alarmTimeString,
+                          })}
                         </Text>
                       </View>
-                      <TouchableOpacity
-                        onPress={() => cancelScheduled(vihar.id)}
-                        style={styles.cancelChip}
-                      >
-                        <Text style={styles.cancelChipText}>Cancel</Text>
-                      </TouchableOpacity>
+
+                      <View style={styles.scheduledMetricsRow}>
+                        <Text style={styles.scheduledMetricItem}>
+                          Distance: {vihar.total_distance_km || '4.5'} km
+                        </Text>
+                        <Text style={styles.scheduledMetricItem}>
+                          Est: {vihar.estimated_duration_mins || '60'} mins
+                        </Text>
+                      </View>
+
+                      <PrimaryButton
+                        title="Start Vihar Early"
+                        variant="maroon"
+                        onPress={() => handleStartScheduledVihar(vihar.id)}
+                        style={styles.startEarlyBtn}
+                      />
                     </View>
-
-                    <Text style={styles.scheduledRouteText}>
-                      {vihar.source_name} → {vihar.dest_name}
-                    </Text>
-
-                    <View style={styles.alarmNoticeBox}>
-                      <Text style={styles.alarmNoticeTag}>ALARM ACTIVE</Text>
-                      <Text style={styles.alarmNoticeText}>
-                        {t('vihar.scheduled_alarm', {
-                          time: alarmInfo.alarmTimeString,
-                        })}
-                      </Text>
-                    </View>
-
-                    <View style={styles.scheduledMetricsRow}>
-                      <Text style={styles.scheduledMetricItem}>
-                        Distance: {vihar.total_distance_km || '4.5'} km
-                      </Text>
-                      <Text style={styles.scheduledMetricItem}>
-                        Est: {vihar.estimated_duration_mins || '60'} mins
-                      </Text>
-                    </View>
-
-                    <PrimaryButton
-                      title="Start Vihar Early"
-                      variant="maroon"
-                      onPress={() => handleStartScheduledVihar(vihar.id)}
-                      style={styles.startEarlyBtn}
-                    />
-                  </View>
                   );
                 })}
               </View>
@@ -1501,6 +1580,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
         currentUserProfile={profile}
         onHandoverComplete={(newSubVihar) => {
           setCurrentSubVihar(newSubVihar);
+          setActiveHold(null);
           showAlert({
             type: 'SUCCESS',
             title: 'Handover Completed',
@@ -1626,68 +1706,118 @@ const styles = StyleSheet.create({
 
   /* ACTIVE VIHAR STYLES */
   mapCard: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.md,
+  },
+  mapCardHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
   liveBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(56, 142, 60, 0.25)',
-    paddingVertical: 4,
-    paddingHorizontal: spacing.md,
+    backgroundColor: colors.statusSafeBg,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.full,
-    marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(56, 142, 60, 0.4)',
+    borderColor: 'rgba(46, 125, 91, 0.3)',
   },
   livePulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: colors.statusSafe,
   },
   liveBadgeText: {
-    ...typography.caption,
-    color: '#81C784',
+    fontSize: 10,
+    color: colors.statusSafe,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  viharTypeBadge: {
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: '#FFD54F',
+  },
+  viharTypeBadgeText: {
+    fontSize: 10,
+    color: '#8D4004',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(201, 164, 76, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFF8E7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.gold,
   },
   mapTitle: {
-    ...typography.h3,
-    color: colors.warmIvory,
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.deepMaroon,
+    marginTop: 2,
+    marginBottom: 2,
   },
   mapSubtitle: {
-    ...typography.bodySmall,
-    color: colors.goldLight,
-    textAlign: 'center',
-    marginBottom: spacing.md,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    lineHeight: 16,
+  },
+  liveMapFrame: {
+    width: '100%',
+    height: 200,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+    backgroundColor: '#E8E1D5',
+  },
+  liveMap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapAttribution: {
+    position: 'absolute',
+    right: 4,
+    bottom: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    color: '#333333',
+    fontSize: 9,
+    paddingHorizontal: 3,
   },
   telemetryBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    backgroundColor: '#FAF7F0',
     width: '100%',
-    padding: spacing.sm,
+    paddingVertical: 7,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#EFE8DA',
+    marginTop: 4,
   },
   telemetryText: {
-    ...typography.caption,
-    color: colors.warmIvory,
-    fontWeight: '600',
+    fontSize: 11,
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#FFFFFF',

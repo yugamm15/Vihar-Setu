@@ -154,101 +154,41 @@ export const subViharService = {
         throw new Error('Vihar ID and Handing Over Sevak ID are required.');
       }
 
-      // 1. Mark Current Sub-Vihar as TRANSFERRED / COMPLETED
-      if (currentSubViharId) {
-        const { error: currentSubViharError } = await supabase
-          .from('vihar_subsessions')
-          .update({
-            status: 'TRANSFERRED',
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', currentSubViharId);
-        if (currentSubViharError) throw currentSubViharError;
-
-        // Update participant left_at
-        const { error: participantUpdateError } = await supabase
-          .from('vihar_participants')
-          .update({
-            is_current_responsible: false,
-            left_at: new Date().toISOString(),
-          })
-          .eq('sub_vihar_id', currentSubViharId);
-        if (participantUpdateError) throw participantUpdateError;
+      if (!currentSubViharId || !nextSevakUserId) {
+        throw new Error('An active Sub-Vihar and receiving Sevak are required.');
       }
 
-      // 2. Create Next Sub-Vihar (e.g. Sub-Vihar #2)
-      const nextNumber = currentSubViharNumber + 1;
-      const { data: newSubVihar, error: subErr } = await supabase
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+        'execute_subvihar_handover',
+        {
+          p_vihar_id: viharId,
+          p_current_sub_vihar_id: currentSubViharId,
+          p_new_sevak_id: nextSevakUserId,
+          p_handover_lat: handoverLat,
+          p_handover_lng: handoverLng,
+          p_handover_location_name: handoverLocationName,
+          p_notes: notes,
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      const newSubViharId = rpcResult?.new_sub_vihar_id;
+      if (!newSubViharId) {
+        throw new Error('Handover completed without creating the next Sub-Vihar.');
+      }
+
+      const { data: newSubVihar, error: newSubViharError } = await supabase
         .from('vihar_subsessions')
-        .insert({
-          vihar_id: viharId,
-          sub_vihar_number: nextNumber,
-          title: `Sub-Vihar ${nextNumber}: Continuing with ${nextSevakName}`,
-          source_name: handoverLocationName,
-          source_lat: handoverLat,
-          source_lng: handoverLng,
-          status: 'ACTIVE',
-          started_at: new Date().toISOString(),
-          notes: notes,
-        })
-        .select()
+        .select('*')
+        .eq('id', newSubViharId)
         .single();
 
-      if (subErr) throw subErr;
-
-      // 3. Register Next Participant
-      if (nextSevakUserId && newSubVihar?.id) {
-        const { error: participantInsertError } = await supabase
-          .from('vihar_participants')
-          .insert({
-          vihar_id: viharId,
-          sub_vihar_id: newSubVihar.id,
-          user_id: nextSevakUserId,
-          role: 'LEAD_SEVAK',
-          is_current_responsible: true,
-          joined_at: new Date().toISOString(),
-          });
-        if (participantInsertError) throw participantInsertError;
-      }
-
-      // 4. Log Handover Record in public.vihar_handover
-      const { data: handoverRecord, error: handoverErr } = await supabase
-        .from('vihar_handover')
-        .insert({
-          vihar_id: viharId,
-          from_sub_vihar_id: currentSubViharId || null,
-          to_sub_vihar_id: newSubVihar?.id || null,
-          handed_over_by: handedOverByUserId,
-          handed_over_to: nextSevakUserId || null,
-          next_sevak_name: nextSevakName,
-          handover_location_name: handoverLocationName,
-          handover_lat: handoverLat,
-          handover_lng: handoverLng,
-          handover_time: new Date().toISOString(),
-          notes: notes,
-          status: 'COMPLETED',
-        })
-        .select()
-        .single();
-
-      if (handoverErr) throw handoverErr;
-
-      // 5. Log Event in route_events for live tracking timeline
-      const { error: eventError } = await supabase.from('route_events').insert({
-        vihar_id: viharId,
-        event_type: 'ROUTE_RECOVERED',
-        severity: 'INFO',
-        message: `VIHAR HANDOVER: Transferred duty to ${nextSevakName} at ${handoverLocationName}. Sub-Vihar #${nextNumber} active.`,
-        latitude: handoverLat,
-        longitude: handoverLng,
-      });
-      if (eventError) throw eventError;
+      if (newSubViharError) throw newSubViharError;
 
       return {
         success: true,
         newSubVihar,
-        handoverRecord,
         error: null,
       };
     } catch (e) {

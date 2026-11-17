@@ -1,4 +1,4 @@
-import { AppState, PermissionsAndroid, Platform } from 'react-native';
+import { AppState, PermissionsAndroid, Platform, NativeModules, NativeEventEmitter } from 'react-native';
 import { supabase } from '../../../core/config/supabase';
 import { offlineSyncService } from './offlineSyncService';
 
@@ -27,16 +27,49 @@ class LocationTelemetryService {
     this.isTracking = false;
     this.timerId = null;
 
-    // Telemetry state
+    // Telemetry state - defaults to device current level (100% when fully charged/plugged in)
     this.gpsStatus = GPS_STATUS.SEARCHING;
     this.lastPosition = null;
-    this.batteryPercentage = 92; // default
+    this.batteryPercentage = 100;
     this.isCharging = false;
     this.currentIntervalMs = 7000; // default 7 seconds
     this.appState = 'FOREGROUND';
 
     this.listeners = new Set();
     this.appStateSubscription = null;
+
+    this._initNativeBattery();
+  }
+
+  /**
+   * Reads real battery state from native Android BatteryModule if available
+   */
+  _initNativeBattery() {
+    try {
+      const { BatteryModule } = NativeModules;
+      if (BatteryModule) {
+        if (typeof BatteryModule.getBatteryStatus === 'function') {
+          BatteryModule.getBatteryStatus()
+            .then((res) => {
+              if (res && typeof res.level === 'number' && res.level >= 0) {
+                this.updateBatteryStatus(res.level, Boolean(res.isCharging));
+              }
+            })
+            .catch(() => {});
+        }
+        if (typeof BatteryModule.startBatteryListener === 'function') {
+          const emitter = new NativeEventEmitter(BatteryModule);
+          emitter.addListener('BatteryStatusUpdate', (res) => {
+            if (res && typeof res.level === 'number' && res.level >= 0) {
+              this.updateBatteryStatus(res.level, Boolean(res.isCharging));
+            }
+          });
+          BatteryModule.startBatteryListener();
+        }
+      }
+    } catch (e) {
+      console.warn('[LocationTelemetry] Native battery init error:', e);
+    }
   }
 
   /**

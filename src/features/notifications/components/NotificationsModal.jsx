@@ -8,9 +8,10 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
-import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
+import { borderRadius, spacing } from '../../../core/theme/spacing';
 import {
   AlertsBellIcon,
   AlertTriangleIcon,
@@ -22,6 +23,7 @@ import { useNotificationStore } from '../hooks/useNotificationStore';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 
 export const NotificationsModal = ({ visible, onClose }) => {
+  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { notifications, unreadCount, isLoading, markRead, markAllRead } =
     useNotificationStore();
@@ -47,24 +49,20 @@ export const NotificationsModal = ({ visible, onClose }) => {
       visible={visible}
       transparent
       animationType="slide"
-      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        {/* Backdrop tap to dismiss */}
-        <TouchableOpacity
-          style={styles.backdropDismiss}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-
-        {/* Modal Container: 100% Solid Opaque Background */}
-        <View style={[styles.container, shadows.prominent]}>
+        <View
+          style={[
+            styles.container,
+            { paddingBottom: Math.max(insets.bottom, spacing.md) },
+          ]}
+        >
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <View style={styles.bellIconBox}>
-                <AlertsBellIcon size={20} color={colors.saffron} />
+                <AlertsBellIcon size={20} color={colors.gold} />
               </View>
               <View>
                 <Text style={styles.title}>Safety Notifications</Text>
@@ -74,11 +72,7 @@ export const NotificationsModal = ({ visible, onClose }) => {
               </View>
             </View>
 
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -98,21 +92,23 @@ export const NotificationsModal = ({ visible, onClose }) => {
           {/* Notifications List */}
           {isLoading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator color={colors.deepMaroon} size="large" />
-              <Text style={styles.loadingText}>Loading notifications...</Text>
+              <ActivityIndicator color={colors.deepMaroon} />
             </View>
           ) : notifications.length === 0 ? (
             <View style={styles.emptyBox}>
-              <CheckCircleIcon size={44} color={colors.statusSafe} />
+              <View style={styles.emptyIconBox}>
+                <CheckCircleIcon size={34} color={colors.statusSafe} />
+              </View>
               <Text style={styles.emptyTitle}>No Notifications</Text>
               <Text style={styles.emptySub}>
-                You are all caught up! Safety alerts, emergency dispatches and Vihar updates will appear here.
+                You are all caught up! Safety alerts and Vihar updates will appear here.
               </Text>
             </View>
           ) : (
             <FlatList
               data={notifications}
               keyExtractor={(item) => item.id}
+              style={styles.list}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
               renderItem={({ item }) => (
@@ -154,31 +150,27 @@ export const NotificationsModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(21, 17, 18, 0.5)',
     justifyContent: 'flex-end',
   },
-  backdropDismiss: {
-    ...StyleSheet.absoluteFillObject,
-  },
   container: {
-    backgroundColor: '#FFFFFF', // 100% solid, fully opaque background
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
+    backgroundColor: colors.cardBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '60%',
     maxHeight: '85%',
-    borderTopWidth: 2,
+    minHeight: 320,
+    borderTopWidth: 1.5,
     borderTopColor: colors.gold,
-    elevation: 24, // Android modal elevation to prevent underlying screen bleeding
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.md,
-    backgroundColor: colors.warmIvory,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -186,22 +178,23 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   bellIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.softCream,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   title: {
-    ...typography.h4,
+    fontSize: 16,
+    fontFamily: typography.semiBold,
     color: colors.deepMaroon,
-    fontWeight: '800',
   },
   subtitle: {
-    ...typography.caption,
+    fontSize: 11,
+    fontFamily: typography.regular,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -209,12 +202,10 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   closeBtnText: {
-    fontSize: 22,
-    color: colors.deepMaroon,
-    fontWeight: '700',
+    fontSize: 20,
+    color: colors.textSecondary,
   },
   actionRow: {
-    backgroundColor: colors.softCream,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     borderBottomWidth: 1,
@@ -222,43 +213,44 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   markAllBtn: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   markAllText: {
-    ...typography.caption,
-    fontWeight: '700',
+    fontSize: 12,
+    fontFamily: typography.medium,
     color: colors.saffronDark,
   },
   loadingBox: {
-    padding: spacing.xxl,
+    flex: 1,
+    padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  loadingText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
   },
   emptyBox: {
-    padding: spacing.xxl,
+    flex: 1,
+    minHeight: 220,
+    paddingHorizontal: spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+  },
+  emptyIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.statusSafeBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyTitle: {
-    ...typography.h4,
+    fontSize: 16,
+    fontFamily: typography.semiBold,
     color: colors.deepMaroon,
-    fontWeight: '700',
     marginTop: spacing.md,
   },
   emptySub: {
-    ...typography.bodySmall,
+    fontSize: 12,
+    fontFamily: typography.regular,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
@@ -266,24 +258,23 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   listContent: {
-    backgroundColor: '#FFFFFF', // Solid opaque list background
     padding: spacing.md,
     paddingBottom: spacing.xxxl,
   },
+  list: {
+    flex: 1,
+  },
   notificationCard: {
-    backgroundColor: colors.warmIvory, // Solid ivory card background
+    backgroundColor: colors.warmIvory,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.cardBorder,
-    ...shadows.subtle,
   },
   unreadCard: {
-    backgroundColor: '#FFF8E7', // Soft warm saffron tone for unread card
-    borderColor: colors.saffron,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.saffron,
+    borderColor: colors.gold,
+    backgroundColor: colors.softCream,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -291,18 +282,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   iconBox: {
-    marginRight: spacing.xs + 4,
+    marginRight: spacing.xs + 2,
   },
   titleCol: {
     flex: 1,
   },
   notifTitle: {
-    ...typography.bodyMedium,
-    fontWeight: '700',
-    color: colors.deepMaroon,
+    fontSize: 13,
+    fontFamily: typography.semiBold,
+    color: colors.textPrimary,
   },
   notifTime: {
-    ...typography.caption,
+    fontSize: 10,
+    fontFamily: typography.regular,
     color: colors.textSecondary,
     marginTop: 1,
   },
@@ -313,9 +305,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.saffron,
   },
   notifBody: {
-    ...typography.bodySmall,
+    fontSize: 12,
+    fontFamily: typography.regular,
     color: colors.textPrimary,
-    lineHeight: 18,
-    marginTop: 2,
+    lineHeight: 17,
   },
 });

@@ -40,7 +40,7 @@ export const ViharHoldModal = ({
 
   const handleStartHold = async () => {
     if (!selectedReason) {
-      setErrorMsg('Please select a reason for the temporary hold.');
+      setErrorMsg(t('vihar.hold_validation_reason'));
       return;
     }
 
@@ -60,13 +60,14 @@ export const ViharHoldModal = ({
       });
 
       if (error) {
-        setErrorMsg('Failed to initiate hold. Please retry.');
+        const message = error?.message || error?.details || error?.hint;
+        setErrorMsg(message || t('vihar.hold_error'));
       } else {
         if (onHoldStarted) onHoldStarted(data);
         onClose();
       }
     } catch (e) {
-      setErrorMsg(e?.message || 'An error occurred while starting hold.');
+      setErrorMsg(e?.message || t('vihar.hold_start_error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -89,7 +90,7 @@ export const ViharHoldModal = ({
             <View style={styles.headerTextWrap}>
               <Text style={styles.title}>{t('vihar.hold_title')}</Text>
               <Text style={styles.subtitle}>
-                अल्प विश्राम / થોભવું — Pauses false safety alerts
+                {t('vihar.hold_subtitle')}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -146,7 +147,9 @@ export const ViharHoldModal = ({
                       >
                         {t(`vihar.hold_reason_${r.id}`)}
                       </Text>
-                      <Text style={styles.reasonDesc}>{r.description}</Text>
+                      <Text style={styles.reasonDesc}>
+                        {t(`vihar.hold_reason_${r.id}_desc`)}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -159,7 +162,7 @@ export const ViharHoldModal = ({
               style={styles.input}
               value={locationName}
               onChangeText={setLocationName}
-              placeholder="e.g. Adajan Upashray / Ring Road Circle"
+              placeholder={t('vihar.hold_location_placeholder')}
               placeholderTextColor={colors.textMuted}
             />
 
@@ -169,7 +172,7 @@ export const ViharHoldModal = ({
               style={[styles.input, styles.textArea]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="e.g. Taking 15 minutes rest for Gochari/water"
+              placeholder={t('vihar.hold_notes_placeholder')}
               placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={3}

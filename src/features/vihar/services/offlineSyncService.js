@@ -152,8 +152,10 @@ class OfflineSyncService {
           const { error } = await supabase.from('vihar_locations').insert(locationPings);
           if (error) {
             console.warn('[OfflineSync] Location pings batch sync warning:', error);
-            // If server error, break to retry later
-            break;
+            // If foreign key violation (e.g. past test vihar deleted from server), drop orphaned records instead of deadlocking queue
+            if (error.code !== '23503') {
+              break;
+            }
           }
         }
 

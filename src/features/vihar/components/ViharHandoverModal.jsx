@@ -90,7 +90,7 @@ export const ViharHandoverModal = ({
     if (!isEmail && cleanDigits.length < 10) {
       setLookupMessage({
         type: 'INFO',
-        text: 'Please enter a 10-digit mobile number or valid email address.',
+        text: t('vihar.handover_invalid_contact'),
       });
       return;
     }
@@ -113,7 +113,7 @@ export const ViharHandoverModal = ({
       setIsHandoverConfirmed(false);
       setLookupMessage({
         type: 'ERROR',
-        text: 'You cannot transfer Vihar responsibility to yourself. Please enter another verified Sevak’s mobile number or email.',
+        text: t('vihar.handover_self_error'),
       });
       return;
     }
@@ -130,14 +130,14 @@ export const ViharHandoverModal = ({
       setIsHandoverConfirmed(true);
       setLookupMessage({
         type: 'SUCCESS',
-        text: 'Registered Sevak matched and verified in database.',
+        text: t('vihar.handover_verified_message'),
       });
     } else {
       setVerifiedSevak(null);
       setIsHandoverConfirmed(false);
       setLookupMessage({
         type: 'ERROR',
-        text: error || 'No active registered Sevak found with this mobile number or email. Please verify with the volunteer.',
+        text: error || t('vihar.handover_not_found'),
       });
     }
   };
@@ -179,17 +179,17 @@ export const ViharHandoverModal = ({
     setErrorMsg('');
 
     if (!verifiedSevak) {
-      setErrorMsg('Please enter a registered mobile number or email to verify the receiving Sevika.');
+      setErrorMsg(t('vihar.handover_verify_error'));
       return;
     }
 
     if (!isHandoverConfirmed) {
-      setErrorMsg(`Please check the confirmation box to authorize handover to ${verifiedSevak.full_name}.`);
+      setErrorMsg(t('vihar.handover_checkbox_error', { name: verifiedSevak.full_name }));
       return;
     }
 
     if (!handoverLocation.trim()) {
-      setErrorMsg('Please specify the handover location.');
+      setErrorMsg(t('vihar.handover_location_error'));
       return;
     }
 
@@ -212,7 +212,7 @@ export const ViharHandoverModal = ({
       onHandoverComplete(result.newSubVihar);
       onClose();
     } else {
-      setErrorMsg(result.error?.message || 'Failed to record handover in database. Please try again.');
+      setErrorMsg(result.error?.message || t('vihar.handover_submit_error'));
     }
   };
 
@@ -233,7 +233,7 @@ export const ViharHandoverModal = ({
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.badgeText}>PHASE 13 • VIHAR HANDOVER</Text>
+              <Text style={styles.badgeText}>{t('vihar.handover_phase')}</Text>
               <Text style={styles.title}>{t('vihar.handover_title')}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -245,10 +245,13 @@ export const ViharHandoverModal = ({
             {/* Status Summary Banner */}
             <View style={styles.summaryBox}>
               <Text style={styles.summaryTitle}>
-                Ending Sub-Vihar #{subViharNum} → Starting Sub-Vihar #{subViharNum + 1}
+                {t('vihar.handover_summary_title', {
+                  current: subViharNum,
+                  next: subViharNum + 1,
+                })}
               </Text>
               <Text style={styles.summaryDesc}>
-                The sacred journey continues uninterrupted. Enter the verified Sevika's registered mobile number or email address to confirm duty transfer.
+                {t('vihar.handover_summary_desc')}
               </Text>
             </View>
 
@@ -256,7 +259,7 @@ export const ViharHandoverModal = ({
             <View style={styles.inputWrapper}>
               <CustomTextInput
                 label={t('vihar.handover_contact')}
-                placeholder="e.g. 9876543210 or sevika@example.com"
+                placeholder={t('vihar.handover_contact_placeholder')}
                 value={contactInput}
                 onChangeText={handleContactChange}
                 keyboardType="email-address"
@@ -328,19 +331,19 @@ export const ViharHandoverModal = ({
                 {/* Details Grid */}
                 <View style={styles.detailsGrid}>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Registered Mobile:</Text>
+                    <Text style={styles.detailLabel}>{t('vihar.handover_mobile_label')}</Text>
                     <Text style={styles.detailValue}>{verifiedSevak.phone || '—'}</Text>
                   </View>
 
                   {verifiedSevak.email ? (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Email Address:</Text>
+                      <Text style={styles.detailLabel}>{t('vihar.handover_email_label')}</Text>
                       <Text style={styles.detailValue}>{verifiedSevak.email}</Text>
                     </View>
                   ) : null}
 
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Operational Area:</Text>
+                    <Text style={styles.detailLabel}>{t('vihar.handover_area_label')}</Text>
                     <Text style={styles.detailValue}>
                       {verifiedSevak.area ? `${verifiedSevak.area}, ` : ''}{verifiedSevak.city || 'Surat'}
                     </Text>
@@ -348,7 +351,7 @@ export const ViharHandoverModal = ({
 
                   {verifiedSevak.blood_group ? (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Blood Group:</Text>
+                      <Text style={styles.detailLabel}>{t('vihar.handover_blood_label')}</Text>
                       <Text style={[styles.detailValue, { color: colors.statusEmergency, fontWeight: '700' }]}>
                         {verifiedSevak.blood_group}
                       </Text>
@@ -369,10 +372,7 @@ export const ViharHandoverModal = ({
                     {isHandoverConfirmed && <Text style={styles.checkmark}>✓</Text>}
                   </View>
                   <Text style={styles.confirmCheckboxText}>
-                    I confirm transferring Sadhviji accompaniment duty to{' '}
-                    <Text style={{ fontWeight: '800', color: colors.deepMaroon }}>
-                      {verifiedSevak.full_name}
-                    </Text>.
+                    {t('vihar.handover_confirm_text', { name: verifiedSevak.full_name })}{' '}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -410,7 +410,7 @@ export const ViharHandoverModal = ({
             {/* Handover Location */}
             <CustomTextInput
               label={t('vihar.handover_location')}
-              placeholder="e.g. Near Majura Gate Cross Road, Surat"
+              placeholder={t('vihar.handover_location_placeholder')}
               value={handoverLocation}
               onChangeText={setHandoverLocation}
             />
@@ -418,7 +418,7 @@ export const ViharHandoverModal = ({
             {/* Handover Notes */}
             <CustomTextInput
               label={t('vihar.handover_notes')}
-              placeholder="e.g. Accompanied 3 Sadhvijis safely, passing sacred Dandak."
+              placeholder={t('vihar.handover_notes_placeholder')}
               value={notes}
               onChangeText={setNotes}
               multiline
@@ -437,7 +437,7 @@ export const ViharHandoverModal = ({
               <PrimaryButton
                 title={
                   isSubmitting
-                    ? 'Transferring...'
+                    ? t('vihar.handover_transferring')
                     : verifiedSevak
                     ? `${t('vihar.handover_confirm')} ${verifiedSevak.full_name.split(' ')[0]}`
                     : t('vihar.handover_verify')

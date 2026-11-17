@@ -15,15 +15,24 @@ export const NotificationBellButton = () => {
     if (user?.id) {
       loadNotifications(user.id);
     }
-  }, [user?.id]);
+  }, [user?.id, loadNotifications]);
 
   return (
     <>
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => setModalVisible(true)}
+        onPress={() => {
+          if (user?.id) loadNotifications(user.id);
+          setModalVisible(true);
+        }}
         style={styles.bellButton}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel={
+          unreadCount > 0
+            ? `Notifications, ${unreadCount} unread`
+            : 'Notifications'
+        }
       >
         <AlertsBellIcon size={22} color={colors.warmIvory} />
         {unreadCount > 0 ? (
@@ -65,7 +74,7 @@ const styles = StyleSheet.create({
     borderColor: colors.deepMaroon,
   },
   badgeText: {
-    color: colors.white,
+    color: colors.textLight,
     fontSize: 9,
     fontWeight: '800',
   },

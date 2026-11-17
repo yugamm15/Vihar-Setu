@@ -13,7 +13,7 @@ import { borderRadius, shadows, spacing } from '../../core/theme/spacing';
 import { AlertTriangleIcon, ShieldIcon } from './CustomSvgIcons';
 
 export const EmergencyButton = ({
-  title = 'SOS EMERGENCY',
+  title = 'SOS',
   subtitle = 'Hold 2 seconds to activate Surat Control Room Alert',
   onPress,
   onSilentSos,
@@ -78,7 +78,7 @@ export const EmergencyButton = ({
         />
 
         <View style={styles.innerButton}>
-          <AlertTriangleIcon size={30} color="#FFFFFF" />
+          <AlertTriangleIcon size={28} color="#FFFFFF" />
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>
             {isHolding ? 'HOLDING... KEEP PRESSED' : subtitle}
@@ -117,20 +117,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   innerButton: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    ...typography.h3,
+    fontSize: 16,
+    lineHeight: 20,
     color: '#FFFFFF',
     fontWeight: '900',
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
     marginTop: spacing.xs,
   },
   subtitle: {
-    ...typography.bodySmall,
+    fontSize: 10,
+    lineHeight: 14,
     color: '#FFCDD2',
     fontWeight: '700',
     marginTop: 4,

@@ -44,6 +44,9 @@ const formatViharDuration = (vihar) => {
     const minutes = Math.max(0, Math.round((end - start) / 60000));
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
+    if (hours === 0 && remainingMinutes === 0 && vihar.status === 'ACTIVE') {
+      return '<1m';
+    }
     return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
   }
 
@@ -84,7 +87,7 @@ export const SevakHomeScreen = ({ navigation }) => {
       const { data, error } = await supabase
         .from('vihars')
         .select(
-          'total_distance_km, estimated_duration_mins, status, created_at, started_at, completed_at'
+        'id, total_distance_km, estimated_duration_mins, status, created_at, started_at, completed_at'
         )
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -111,23 +114,27 @@ export const SevakHomeScreen = ({ navigation }) => {
         0
       );
       const today = new Date();
-      const todayVihar = vihars.find((vihar) => {
-        if (vihar.status !== 'ACTIVE' && vihar.status !== 'COMPLETED') return false;
-        const activityDate = vihar.started_at || vihar.completed_at || vihar.created_at;
-        if (!activityDate) return false;
-        const date = new Date(activityDate);
-        return (
-          date.getFullYear() === today.getFullYear() &&
-          date.getMonth() === today.getMonth() &&
-          date.getDate() === today.getDate()
-        );
-      });
+      const todayVihar =
+        (activeVihar?.status === 'ACTIVE' ? activeVihar : null) ||
+        vihars.find((vihar) => {
+          if (vihar.status !== 'ACTIVE' && vihar.status !== 'COMPLETED') return false;
+          const activityDate = vihar.started_at || vihar.completed_at || vihar.created_at;
+          if (!activityDate) return false;
+          const date = new Date(activityDate);
+          return (
+            date.getFullYear() === today.getFullYear() &&
+            date.getMonth() === today.getMonth() &&
+            date.getDate() === today.getDate()
+          );
+        });
+
+      const distanceKm = todayVihar ? Number(todayVihar.total_distance_km) : NaN;
 
       setStats({
         totalVihars: completed.length,
         totalDistanceKm: totalKm.toFixed(1),
-        todayDistance: todayVihar?.total_distance_km
-          ? `${Number(todayVihar.total_distance_km).toFixed(1)} km`
+        todayDistance: Number.isFinite(distanceKm) && distanceKm >= 0
+          ? `${distanceKm.toFixed(1)} km`
           : null,
         todayDuration: todayVihar ? formatViharDuration(todayVihar) : null,
         deskPhone,
@@ -136,7 +143,7 @@ export const SevakHomeScreen = ({ navigation }) => {
       console.warn('[SevakHome] Fetch stats failed:', e);
       setStatsError('Unable to load your Vihar activity. Pull to retry.');
     }
-  }, [user, profile, loadViharState]);
+  }, [user, profile, activeVihar, loadViharState]);
 
   useFocusEffect(
     useCallback(() => {
@@ -197,13 +204,13 @@ export const SevakHomeScreen = ({ navigation }) => {
           >
             <View style={styles.activeLiveRow}>
               <View style={styles.livePulseDot} />
-              <Text style={styles.activeLiveTitle}>ACTIVE VIHAR IN PROGRESS</Text>
+              <Text style={styles.activeLiveTitle}>{t('home.active_vihar_banner_title')}</Text>
             </View>
             <Text style={styles.activeLiveRoute}>
               {activeVihar.source_name} → {activeVihar.dest_name}
             </Text>
             <Text style={styles.activeLiveSub}>
-              Tap to open live navigation & emergency controls →
+              {t('home.active_vihar_banner_sub')}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -217,15 +224,15 @@ export const SevakHomeScreen = ({ navigation }) => {
           >
             <View style={styles.scheduledBannerHeader}>
               <View style={styles.alarmBadge}>
-                <Text style={styles.alarmBadgeText}>30-Min Alarm Active</Text>
+                <Text style={styles.alarmBadgeText}>{t('home.alarm_active')}</Text>
               </View>
-              <Text style={styles.scheduledTimeTag}>Upcoming Morning</Text>
+              <Text style={styles.scheduledTimeTag}>{t('home.upcoming_morning')}</Text>
             </View>
             <Text style={styles.scheduledBannerTitle}>
-              Upcoming Vihar: {nextScheduled.dest_name}
+              {t('home.upcoming_vihar')} {nextScheduled.dest_name}
             </Text>
             <Text style={styles.scheduledBannerSub}>
-              From: {nextScheduled.source_name}
+              {t('home.from_source')} {nextScheduled.source_name}
             </Text>
           </TouchableOpacity>
         ) : null}

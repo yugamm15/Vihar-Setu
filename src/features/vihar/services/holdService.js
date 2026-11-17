@@ -47,6 +47,28 @@ class HoldService {
       let holdRecord = null;
 
       if (offlineSyncService.isOnline) {
+        const { data: existingHold, error: existingHoldError } = await supabase
+          .from('vihar_holds')
+          .select('*')
+          .eq('vihar_id', viharId)
+          .eq('status', 'ACTIVE')
+          .maybeSingle();
+
+        if (existingHoldError) throw existingHoldError;
+
+        if (existingHold) {
+          const { error: statusError } = await supabase
+            .from('vihars')
+            .update({
+              safety_status: 'HOLD',
+              updated_at: now,
+            })
+            .eq('id', viharId);
+
+          if (statusError) throw statusError;
+          return { data: existingHold, error: null };
+        }
+
         const { data, error } = await supabase
           .from('vihar_holds')
           .insert(holdPayload)
@@ -64,7 +86,10 @@ class HoldService {
             updated_at: now,
           })
           .eq('id', viharId);
-        if (statusError) throw statusError;
+        if (statusError) {
+          await supabase.from('vihar_holds').delete().eq('id', data.id);
+          throw statusError;
+        }
 
         // Record in route_events
         const { error: eventError } = await supabase.from('route_events').insert({
@@ -76,7 +101,12 @@ class HoldService {
           longitude,
           metadata: { hold_id: data.id, reason, notes },
         });
-        if (eventError) throw eventError;
+        if (eventError) {
+          console.warn(
+            '[HoldService] Hold state persisted, but the audit event could not be recorded:',
+            eventError
+          );
+        }
       } else {
         // Enqueue offline
         holdRecord = { ...holdPayload, id: `offline_hold_${Date.now()}` };
@@ -132,7 +162,12 @@ class HoldService {
           message: `Vihar resumed from Hold (Duration: ${durationMinutes} mins)`,
           metadata: { hold_id: holdId, duration_minutes: durationMinutes },
         });
-        if (eventError) throw eventError;
+        if (eventError) {
+          console.warn(
+            '[HoldService] Resume state persisted, but the audit event could not be recorded:',
+            eventError
+          );
+        }
       } else {
         await offlineSyncService.enqueue('HOLD_EVENT', {
           action: 'UPDATE',
