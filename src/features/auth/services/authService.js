@@ -123,18 +123,26 @@ export const authService = {
       if (error) throw error;
 
       const user = data.user;
-      const { profile, role } = await this.fetchUserProfileAndRole(user.id);
+      const { profile, role, error: authorizationError } =
+        await this.fetchUserProfileAndRole(user.id);
+
+      if (authorizationError || !profile || !role) {
+        throw authorizationError || new Error('Authenticated account has no database role.');
+      }
+
+      if (profile.status !== 'ACTIVE') {
+        throw new Error(
+          profile.status === 'DISABLED'
+            ? 'This account has been disabled. Please contact Super Administrator.'
+            : `This account is ${String(profile.status || 'inactive').toLowerCase()}.`
+        );
+      }
 
       return {
         data: {
           ...data,
-          profile: profile || {
-            id: user.id,
-            email: user.email,
-            status: 'ACTIVE',
-            full_name: profile?.full_name || 'Administrator',
-          },
-          role: role || ROLES.ADMIN,
+          profile,
+          role,
         },
         error: null,
       };
@@ -180,18 +188,28 @@ export const authService = {
       // Fetch User Profile and Role from PostgreSQL
       const user = data.user;
       const { profile, role } = await this.fetchUserProfileAndRole(user.id);
+      if (!profile || !role) {
+        throw new Error('Authenticated account is not authorized for this application.');
+      }
+
+      if (profile.status === 'DISABLED') {
+        throw new Error('This account has been disabled. Please contact an administrator.');
+      }
+
+      if (profile.status === 'REJECTED') {
+        throw new Error('This volunteer registration was not approved. Please contact an administrator.');
+      }
+
+      if (role === ROLES.SUPER_ADMIN) {
+        await supabase.auth.signOut();
+        throw new Error('Super Administrator accounts must use password login.');
+      }
 
       return {
         data: {
           ...data,
-          profile: profile || {
-            id: user.id,
-            email: user.email || email,
-            phone: user.phone || fullPhone,
-            status: 'PENDING',
-            full_name: '',
-          },
-          role: role || ROLES.SEVAK,
+          profile,
+          role,
         },
         error: null,
       };
@@ -206,19 +224,23 @@ export const authService = {
   async fetchUserProfileAndRole(userId) {
     try {
       // Fetch profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
+      if (profileError) throw profileError;
+
       // Fetch primary role via user_roles query
-      const { data: userRoles } = await supabase
+      const { data: userRoles, error: userRolesError } = await supabase
         .from('user_roles')
         .select('roles(name)')
         .eq('user_id', userId);
 
-      let role = ROLES.SEVAK;
+      if (userRolesError) throw userRolesError;
+
+      let role = null;
       if (userRoles && userRoles.length > 0) {
         const roleNames = userRoles.map((ur) => ur.roles?.name);
         if (roleNames.includes(ROLES.SUPER_ADMIN)) {
@@ -230,10 +252,26 @@ export const authService = {
         }
       }
 
-      return { profile, role };
+      if (!profile) {
+        return {
+          profile: null,
+          role: null,
+          error: new Error('Authenticated account profile was not found.'),
+        };
+      }
+
+      if (!role) {
+        return {
+          profile,
+          role: null,
+          error: new Error('Authenticated account has no assigned database role.'),
+        };
+      }
+
+      return { profile, role, error: null };
     } catch (e) {
       console.warn('[AuthService] Error fetching profile/role:', e);
-      return { profile: null, role: ROLES.SEVAK };
+      return { profile: null, role: null, error: e };
     }
   },
 
@@ -386,24 +424,28 @@ export const authService = {
    */
   async hardDeleteSevakAccount(userId) {
     try {
-      // 1. Try calling stored procedure if available
       const { data, error } = await supabase.rpc('hard_delete_sevak', {
         target_user_id: userId,
       });
 
-      if (!error) return { success: true, message: data?.message };
+      if (error) {
+        try {
+          await supabase.rpc('record_security_event', {
+            p_action: 'SEVAK_HARD_DELETE_FAILED',
+            p_entity: 'profiles',
+            p_entity_id: userId,
+            p_details: { error: error.message },
+          });
+        } catch (auditError) {
+          console.warn('[AuthService] Could not record hard-delete failure:', auditError);
+        }
+        throw error;
+      }
 
-      // 2. Direct cascading delete fallback
-      await supabase.from('vihar_participants').delete().eq('user_id', userId);
-      await supabase.from('vihar_holds').delete().eq('user_id', userId);
-      await supabase.from('vihar_locations').delete().eq('user_id', userId);
-      await supabase.from('emergencies').delete().eq('user_id', userId);
-      await supabase.from('safety_checks').delete().eq('user_id', userId);
-      await supabase.from('user_roles').delete().eq('user_id', userId);
-      const { error: profileErr } = await supabase.from('profiles').delete().eq('id', userId);
-      if (profileErr) throw profileErr;
-
-      return { success: true, message: 'Sevak account permanently deleted.' };
+      return {
+        success: true,
+        message: data?.message || 'Sevak account permanently deleted.',
+      };
     } catch (e) {
       console.warn('[AuthService] Error in hardDeleteSevakAccount:', e);
       return { success: false, error: e };

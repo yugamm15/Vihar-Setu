@@ -6,6 +6,7 @@ import { AuthNavigator } from './AuthNavigator';
 import { SevakNavigator } from './SevakNavigator';
 import { ProfileSetupScreen } from '../features/auth/screens/ProfileSetupScreen';
 import { SevakPendingApprovalScreen } from '../features/sevak/screens/SevakPendingApprovalScreen';
+import { AccountDisabledScreen } from '../features/auth/screens/AccountDisabledScreen';
 import { AdminNavigator } from './AdminNavigator';
 import { SuperAdminNavigator } from './SuperAdminNavigator';
 import { ROLES } from '../core/constants/roles';
@@ -39,6 +40,11 @@ export const AppNavigator = () => {
   const renderRoleNavigator = () => {
     if (!isAuthenticated) {
       return <AuthNavigator />;
+    }
+
+    // Security Gate: Suspended or rejected accounts cannot access operational modules
+    if (userStatus === 'DISABLED' || userStatus === 'REJECTED') {
+      return <AccountDisabledScreen status={userStatus} />;
     }
 
     switch (role) {

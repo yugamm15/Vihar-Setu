@@ -16,7 +16,6 @@ import {
   AlertTriangleIcon,
   CheckCircleIcon,
   ShieldIcon,
-  PhoneIcon,
   ClockIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { useNotificationStore } from '../hooks/useNotificationStore';
@@ -33,11 +32,11 @@ export const NotificationsModal = ({ visible, onClose }) => {
       case 'POLICE_CALL':
         return <AlertTriangleIcon size={18} color={colors.statusEmergency} />;
       case 'DEVIATION':
-        return <AlertTriangleIcon size={18} color={colors.warning} />;
+        return <AlertTriangleIcon size={18} color={colors.statusWarning} />;
       case 'HOLD':
         return <ClockIcon size={18} color={colors.gold} />;
       case 'BATTERY':
-        return <ShieldIcon size={18} color={colors.warning} />;
+        return <ShieldIcon size={18} color={colors.statusWarning} />;
       default:
         return <AlertsBellIcon size={18} color={colors.deepMaroon} />;
     }
@@ -48,15 +47,24 @@ export const NotificationsModal = ({ visible, onClose }) => {
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        {/* Backdrop tap to dismiss */}
+        <TouchableOpacity
+          style={styles.backdropDismiss}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+
+        {/* Modal Container: 100% Solid Opaque Background */}
+        <View style={[styles.container, shadows.prominent]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <View style={styles.bellIconBox}>
-                <AlertsBellIcon size={20} color={colors.gold} />
+                <AlertsBellIcon size={20} color={colors.saffron} />
               </View>
               <View>
                 <Text style={styles.title}>Safety Notifications</Text>
@@ -66,7 +74,11 @@ export const NotificationsModal = ({ visible, onClose }) => {
               </View>
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
               <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -86,14 +98,15 @@ export const NotificationsModal = ({ visible, onClose }) => {
           {/* Notifications List */}
           {isLoading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator color={colors.deepMaroon} />
+              <ActivityIndicator color={colors.deepMaroon} size="large" />
+              <Text style={styles.loadingText}>Loading notifications...</Text>
             </View>
           ) : notifications.length === 0 ? (
             <View style={styles.emptyBox}>
-              <CheckCircleIcon size={40} color={colors.statusSafe} />
+              <CheckCircleIcon size={44} color={colors.statusSafe} />
               <Text style={styles.emptyTitle}>No Notifications</Text>
               <Text style={styles.emptySub}>
-                You are all caught up! Safety alerts and Vihar updates will appear here.
+                You are all caught up! Safety alerts, emergency dispatches and Vihar updates will appear here.
               </Text>
             </View>
           ) : (
@@ -141,24 +154,31 @@ export const NotificationsModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(21, 17, 18, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'flex-end',
   },
+  backdropDismiss: {
+    ...StyleSheet.absoluteFillObject,
+  },
   container: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#FFFFFF', // 100% solid, fully opaque background
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
     maxHeight: '85%',
-    borderTopWidth: 1.5,
-    borderTopColor: colors.gold + '40',
+    borderTopWidth: 2,
+    borderTopColor: colors.gold,
+    elevation: 24, // Android modal elevation to prevent underlying screen bleeding
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.md,
+    backgroundColor: colors.warmIvory,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
+    borderBottomColor: colors.cardBorder,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -166,23 +186,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   bellIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.primaryDark + '20',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.softCream,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.gold + '40',
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
   },
   title: {
-    fontSize: 16,
-    fontFamily: typography.semiBold,
-    color: colors.textPrimary,
+    ...typography.h4,
+    color: colors.deepMaroon,
+    fontWeight: '800',
   },
   subtitle: {
-    fontSize: 11,
-    fontFamily: typography.regular,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -190,44 +209,56 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   closeBtnText: {
-    fontSize: 20,
-    color: colors.textSecondary,
+    fontSize: 22,
+    color: colors.deepMaroon,
+    fontWeight: '700',
   },
   actionRow: {
+    backgroundColor: colors.softCream,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
+    borderBottomColor: colors.cardBorder,
     alignItems: 'flex-end',
   },
   markAllBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   markAllText: {
-    fontSize: 12,
-    fontFamily: typography.medium,
+    ...typography.caption,
+    fontWeight: '700',
     color: colors.saffronDark,
   },
   loadingBox: {
-    padding: spacing.xl,
+    padding: spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   emptyBox: {
     padding: spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
   emptyTitle: {
-    fontSize: 16,
-    fontFamily: typography.semiBold,
-    color: colors.textPrimary,
+    ...typography.h4,
+    color: colors.deepMaroon,
+    fontWeight: '700',
     marginTop: spacing.md,
   },
   emptySub: {
-    fontSize: 12,
-    fontFamily: typography.regular,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
@@ -235,20 +266,24 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   listContent: {
+    backgroundColor: '#FFFFFF', // Solid opaque list background
     padding: spacing.md,
     paddingBottom: spacing.xxxl,
   },
   notificationCard: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.warmIvory, // Solid ivory card background
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    ...shadows.subtle,
   },
   unreadCard: {
-    borderColor: colors.gold,
-    backgroundColor: colors.gold + '0A',
+    backgroundColor: '#FFF8E7', // Soft warm saffron tone for unread card
+    borderColor: colors.saffron,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.saffron,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -256,19 +291,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   iconBox: {
-    marginRight: spacing.xs + 2,
+    marginRight: spacing.xs + 4,
   },
   titleCol: {
     flex: 1,
   },
   notifTitle: {
-    fontSize: 13,
-    fontFamily: typography.semiBold,
-    color: colors.textPrimary,
+    ...typography.bodyMedium,
+    fontWeight: '700',
+    color: colors.deepMaroon,
   },
   notifTime: {
-    fontSize: 10,
-    fontFamily: typography.regular,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: 1,
   },
@@ -279,10 +313,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.saffron,
   },
   notifBody: {
-    fontSize: 12,
-    fontFamily: typography.regular,
+    ...typography.bodySmall,
     color: colors.textPrimary,
-    lineHeight: 17,
+    lineHeight: 18,
+    marginTop: 2,
   },
 });
-

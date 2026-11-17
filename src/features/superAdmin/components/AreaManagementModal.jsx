@@ -8,18 +8,17 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  FlatList,
+  Alert,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import {
   MapPinIcon,
-  CheckCircleIcon,
   ShieldIcon,
   UserIcon,
 } from '../../../shared/components/CustomSvgIcons';
-import { adminService } from '../../admin/services/adminService';
+import { superAdminAreaService } from '../services/superAdminAreaService';
 
 export const AreaManagementModal = ({ visible, onClose }) => {
   const [areas, setAreas] = useState([]);
@@ -42,8 +41,8 @@ export const AreaManagementModal = ({ visible, onClose }) => {
     setErrorMsg('');
     try {
       const [{ data: areasData }, { data: adminsData }] = await Promise.all([
-        adminService.fetchAreas(),
-        adminService.fetchAdministrators(),
+        superAdminAreaService.listAreas(),
+        superAdminAreaService.listAdministrators(),
       ]);
 
       setAreas(areasData || []);
@@ -73,31 +72,19 @@ export const AreaManagementModal = ({ visible, onClose }) => {
       setErrorMsg('Area / Sector Name is compulsory.');
       return;
     }
-    if (!adminName.trim()) {
-      setErrorMsg('Designated Area Administrator Name is compulsory.');
-      return;
-    }
-    if (!adminPhone.trim()) {
-      setErrorMsg('Admin Mobile Number is compulsory for emergency contact.');
-      return;
-    }
-
     setIsCreating(true);
     setErrorMsg('');
 
     try {
-      const { data, error } = await adminService.createArea({
-        name: newAreaName.trim(),
-        city: newAreaCity.trim() || 'Surat',
-        admin_name: adminName.trim(),
-        admin_phone: adminPhone.trim(),
-        admin_email: adminEmail.trim(),
-      });
+      const { data, error } = await superAdminAreaService.createArea(
+        newAreaName.trim(),
+        newAreaCity.trim() || 'Surat'
+      );
 
       if (error) {
         setErrorMsg('Failed to create area. It may already exist.');
       } else {
-        setSuccessMsg(`Area "${data.name}" registered with Admin "${adminName.trim()}".`);
+        setSuccessMsg(`Area "${data.name}" created successfully.`);
         setNewAreaName('');
         setAdminName('');
         setAdminPhone('');
@@ -117,10 +104,19 @@ export const AreaManagementModal = ({ visible, onClose }) => {
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        {/* Backdrop tap to dismiss */}
+        <TouchableOpacity
+          style={styles.backdropDismiss}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+
+        {/* Modal Container: 100% Solid Opaque Background */}
+        <View style={[styles.container, shadows.prominent]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -130,38 +126,47 @@ export const AreaManagementModal = ({ visible, onClose }) => {
               <View>
                 <Text style={styles.title}>Area & Jurisdiction</Text>
                 <Text style={styles.subtitle}>
-                  Multi-Area Scalability • Current: Surat
+                  Multi-Area Scalability • Current Hub: Surat
                 </Text>
               </View>
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
               <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Banner */}
+          {/* Scrollable Content */}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Informational Policy Banner */}
             <View style={styles.banner}>
-              <ShieldIcon size={16} color={colors.gold} />
+              <ShieldIcon size={18} color={colors.gold} />
               <Text style={styles.bannerText}>
-                Administrators are restricted to monitor Vihars and Sevaks only within their assigned operational area.
+                Administrators are strictly contained to monitor Vihars and Sevikas within their assigned geographical area boundary.
               </Text>
             </View>
 
-            {/* Notification messages */}
+            {/* Notification Messages */}
             {!!errorMsg && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMsg}</Text>
+                <Text style={styles.errorText}>⚠️ {errorMsg}</Text>
               </View>
             )}
             {!!successMsg && (
               <View style={styles.successBox}>
-                <Text style={styles.successText}>{successMsg}</Text>
+                <Text style={styles.successText}>✓ {successMsg}</Text>
               </View>
             )}
 
-            {/* Section 1: Active Operational Areas */}
+            {/* Section Header: Active Areas & Add Button */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>
                 Operational Areas ({areas.length})
@@ -169,6 +174,7 @@ export const AreaManagementModal = ({ visible, onClose }) => {
               <TouchableOpacity
                 onPress={() => setShowAddForm(!showAddForm)}
                 style={styles.addAreaBtn}
+                activeOpacity={0.8}
               >
                 <Text style={styles.addAreaBtnText}>
                   {showAddForm ? 'Cancel' : '+ Add Area'}
@@ -176,18 +182,18 @@ export const AreaManagementModal = ({ visible, onClose }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Add Area Form */}
+            {/* Add Area Form Card */}
             {showAddForm && (
-              <View style={[styles.addAreaCard, shadows.subtle]}>
-                <Text style={styles.formSectionHeader}>Area Jurisdiction</Text>
-                
+              <View style={[styles.addAreaCard, shadows.sm]}>
+                <Text style={styles.formSectionHeader}>New Area Jurisdiction</Text>
+
                 <Text style={styles.formLabel}>Area / Sector Name *</Text>
                 <TextInput
                   style={styles.input}
                   value={newAreaName}
                   onChangeText={setNewAreaName}
                   placeholder="e.g. Vesu & City Light"
-                  placeholderTextColor={colors.gray500}
+                  placeholderTextColor={colors.textMuted}
                 />
 
                 <Text style={styles.formLabel}>City *</Text>
@@ -196,11 +202,13 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                   value={newAreaCity}
                   onChangeText={setNewAreaCity}
                   placeholder="Surat"
-                  placeholderTextColor={colors.gray500}
+                  placeholderTextColor={colors.textMuted}
                 />
 
                 <View style={styles.formDivider} />
-                <Text style={styles.formSectionHeader}>Designated Area Administrator (Compulsory)</Text>
+                <Text style={styles.formSectionHeader}>
+                  Designated Area Administrator (Compulsory)
+                </Text>
 
                 <Text style={styles.formLabel}>Admin Full Name *</Text>
                 <TextInput
@@ -208,7 +216,7 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                   value={adminName}
                   onChangeText={setAdminName}
                   placeholder="e.g. Vihar Administrator"
-                  placeholderTextColor={colors.gray500}
+                  placeholderTextColor={colors.textMuted}
                 />
 
                 <Text style={styles.formLabel}>Admin Mobile Number *</Text>
@@ -218,7 +226,7 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                   onChangeText={setAdminPhone}
                   placeholder="e.g. 9876543210"
                   keyboardType="phone-pad"
-                  placeholderTextColor={colors.gray500}
+                  placeholderTextColor={colors.textMuted}
                 />
 
                 <Text style={styles.formLabel}>Admin Email Address (Optional)</Text>
@@ -229,16 +237,17 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                   placeholder="e.g. admin@jinaarya.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  placeholderTextColor={colors.gray500}
+                  placeholderTextColor={colors.textMuted}
                 />
 
                 <TouchableOpacity
                   style={styles.submitAreaBtn}
                   onPress={handleCreateArea}
                   disabled={isCreating}
+                  activeOpacity={0.8}
                 >
                   {isCreating ? (
-                    <ActivityIndicator color={colors.white} />
+                    <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
                     <Text style={styles.submitAreaBtnText}>Save Area & Assign Admin</Text>
                   )}
@@ -248,16 +257,19 @@ export const AreaManagementModal = ({ visible, onClose }) => {
 
             {/* Areas List */}
             {isLoading ? (
-              <ActivityIndicator color={colors.deepMaroon} style={{ marginVertical: 20 }} />
+              <View style={styles.loadingBox}>
+                <ActivityIndicator color={colors.deepMaroon} size="large" />
+                <Text style={styles.loadingText}>Loading operational areas...</Text>
+              </View>
             ) : areas.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>No areas registered.</Text>
+                <Text style={styles.emptyText}>No operational areas registered.</Text>
               </View>
             ) : (
               areas.map((area) => {
                 const assignedAdmin = admins.find((a) => a.area_id === area.id);
                 const displayAdminName =
-                  area.admin_name || assignedAdmin?.profiles?.full_name || 'Designated Area Admin';
+                  assignedAdmin?.profiles?.full_name || 'No assigned Administrator';
                 const displayAdminPhone = area.admin_phone || assignedAdmin?.profiles?.phone;
                 const displayAdminEmail = area.admin_email || assignedAdmin?.profiles?.email;
 
@@ -265,29 +277,77 @@ export const AreaManagementModal = ({ visible, onClose }) => {
                   <View key={area.id} style={[styles.areaCard, shadows.subtle]}>
                     <View style={styles.areaHeader}>
                       <View style={styles.areaBadge}>
-                        <Text style={styles.areaBadgeText}>{area.city}</Text>
+                        <Text style={styles.areaBadgeText}>{area.city || 'SURAT'}</Text>
                       </View>
                       <Text style={styles.areaName}>{area.name}</Text>
                     </View>
 
-                    <View style={styles.assignedAdminRow}>
-                      <UserIcon size={14} color={colors.deepMaroon} />
-                      <Text style={styles.assignedAdminText}>
-                        Assigned Admin:{' '}
-                        <Text style={styles.adminHighlight}>{displayAdminName}</Text>
-                      </Text>
+                    {/* Assigned Administrator Box */}
+                    <View style={styles.assignedAdminBox}>
+                      <View style={styles.assignedAdminRow}>
+                        <UserIcon size={16} color={colors.saffron} />
+                        <Text style={styles.assignedAdminLabel}>
+                          Assigned Admin:{' '}
+                          <Text style={styles.adminHighlight}>{displayAdminName}</Text>
+                        </Text>
+                      </View>
+
+                      {(displayAdminPhone || displayAdminEmail) && (
+                        <View style={styles.adminContactRow}>
+                          {displayAdminPhone ? (
+                            <Text style={styles.adminContactText}>
+                              📞 {displayAdminPhone}
+                            </Text>
+                          ) : null}
+                          {displayAdminEmail ? (
+                            <Text style={styles.adminContactText}>
+                              ✉️ {displayAdminEmail}
+                            </Text>
+                          ) : null}
+                        </View>
+                      )}
                     </View>
 
-                    {(displayAdminPhone || displayAdminEmail) && (
-                      <View style={styles.adminContactRow}>
-                        {displayAdminPhone ? (
-                          <Text style={styles.adminContactText}>📞 {displayAdminPhone}</Text>
-                        ) : null}
-                        {displayAdminEmail ? (
-                          <Text style={styles.adminContactText}>✉️ {displayAdminEmail}</Text>
-                        ) : null}
-                      </View>
-                    )}
+                    <TouchableOpacity
+                      disabled={!area.is_active}
+                      style={[
+                        styles.archiveButton,
+                        !area.is_active && styles.archiveButtonDisabled,
+                      ]}
+                      onPress={() =>
+                        Alert.alert('Archive Area', `Archive operational area "${area.name}"?`, [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Archive',
+                            style: 'destructive',
+                            onPress: async () => {
+                              const response = await superAdminAreaService.updateArea(
+                                area.id,
+                                area.name,
+                                area.city,
+                                area.state,
+                                false
+                              );
+                              if (response.error) {
+                                setErrorMsg(response.error.message);
+                              } else {
+                                setSuccessMsg('Area archived successfully.');
+                                loadData();
+                              }
+                            },
+                          },
+                        ])
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.archiveButtonText,
+                          !area.is_active && styles.archiveButtonTextDisabled,
+                        ]}
+                      >
+                        {area.is_active ? 'Archive Area' : 'Archived'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 );
               })
@@ -302,48 +362,55 @@ export const AreaManagementModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(21, 17, 18, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'flex-end',
   },
+  backdropDismiss: {
+    ...StyleSheet.absoluteFillObject,
+  },
   container: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-    borderTopWidth: 1.5,
-    borderTopColor: colors.gold + '40',
+    backgroundColor: '#FFFFFF', // 100% solid, fully opaque background
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    maxHeight: '90%',
+    borderTopWidth: 2,
+    borderTopColor: colors.gold,
+    elevation: 24, // Android modal elevation to prevent underlying screen bleeding
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.md,
+    backgroundColor: colors.warmIvory,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceBorder,
+    borderBottomColor: colors.cardBorder,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flex: 1,
   },
   iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.primaryDark + '20',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.softCream,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.gold + '40',
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
   },
   title: {
-    fontSize: 16,
-    fontFamily: typography.semiBold,
-    color: colors.textPrimary,
+    ...typography.h4,
+    color: colors.deepMaroon,
+    fontWeight: '800',
   },
   subtitle: {
-    fontSize: 11,
-    fontFamily: typography.regular,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: 1,
   },
@@ -351,55 +418,59 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   closeBtnText: {
-    fontSize: 20,
-    color: colors.textSecondary,
+    fontSize: 22,
+    color: colors.deepMaroon,
+    fontWeight: '700',
   },
-  content: {
+  scrollView: {
+    backgroundColor: '#FFFFFF', // Solid opaque scroll background
+  },
+  contentContainer: {
     padding: spacing.md,
+    paddingBottom: spacing.xxxl + 20,
   },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryDark + '15',
-    borderRadius: 10,
-    padding: spacing.sm,
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.gold + '30',
-    gap: spacing.xs,
+    borderColor: colors.cardBorder,
+    gap: spacing.sm,
   },
   bannerText: {
     flex: 1,
-    fontSize: 12,
-    fontFamily: typography.regular,
-    color: colors.textSecondary,
-    lineHeight: 16,
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
   },
   errorBox: {
-    backgroundColor: colors.emergency + '15',
+    backgroundColor: '#FEE2E2',
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.sm,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.emergency,
+    borderColor: colors.statusEmergency,
   },
   errorText: {
-    color: colors.emergency,
-    fontSize: 12,
-    fontFamily: typography.medium,
+    color: colors.statusEmergency,
+    ...typography.caption,
+    fontWeight: '700',
   },
   successBox: {
     backgroundColor: colors.statusSafeBg,
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.sm,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.statusSafe,
   },
   successText: {
     color: colors.statusSafe,
-    fontSize: 12,
-    fontFamily: typography.medium,
+    ...typography.caption,
+    fontWeight: '700',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -409,34 +480,35 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontFamily: typography.semiBold,
+    ...typography.bodyMedium,
     color: colors.deepMaroon,
+    fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   addAreaBtn: {
     backgroundColor: colors.saffron,
-    paddingVertical: 5,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: borderRadius.sm,
+    ...shadows.subtle,
   },
   addAreaBtnText: {
-    fontSize: 12,
-    fontFamily: typography.semiBold,
-    color: colors.white,
+    ...typography.caption,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   addAreaCard: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.softCream,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderWidth: 1.5,
+    borderColor: colors.saffron,
   },
   formSectionHeader: {
-    fontSize: 12,
-    fontFamily: typography.semiBold,
+    ...typography.caption,
+    fontWeight: '800',
     color: colors.deepMaroon,
     marginBottom: spacing.xs,
     marginTop: 2,
@@ -445,23 +517,23 @@ const styles = StyleSheet.create({
   },
   formDivider: {
     height: 1,
-    backgroundColor: colors.surfaceBorder,
+    backgroundColor: colors.cardBorder,
     marginVertical: spacing.sm,
   },
   formLabel: {
-    fontSize: 11,
-    fontFamily: typography.medium,
+    ...typography.caption,
+    fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF', // Solid white input background
     borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    borderColor: colors.inputBorder,
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 8,
-    fontSize: 13,
+    ...typography.bodySmall,
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
@@ -474,17 +546,28 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   submitAreaBtnText: {
-    color: colors.white,
-    fontSize: 13,
-    fontFamily: typography.semiBold,
+    color: '#FFFFFF',
+    ...typography.button,
+    fontWeight: '700',
+  },
+  loadingBox: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   areaCard: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.warmIvory, // Solid warm ivory card background
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    ...shadows.subtle,
   },
   areaHeader: {
     flexDirection: 'row',
@@ -493,56 +576,89 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   areaBadge: {
-    backgroundColor: colors.primaryDark + '20',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: colors.deepMaroon,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: borderRadius.xs,
   },
   areaBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.gold,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   areaName: {
-    fontSize: 14,
-    fontFamily: typography.semiBold,
+    ...typography.subtitle1,
+    fontWeight: '700',
     color: colors.deepMaroon,
+    flex: 1,
+  },
+  assignedAdminBox: {
+    backgroundColor: '#FFFFFF', // Solid white sub-card for assigned administrator
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
   assignedAdminRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 4,
   },
-  assignedAdminText: {
-    fontSize: 12,
-    fontFamily: typography.regular,
+  assignedAdminLabel: {
+    ...typography.bodySmall,
     color: colors.textSecondary,
+    flex: 1,
   },
   adminHighlight: {
-    color: colors.textPrimary,
-    fontFamily: typography.semiBold,
+    color: colors.deepMaroon,
+    fontWeight: '700',
   },
   adminContactRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: 4,
-    paddingLeft: 20,
+    gap: spacing.md,
+    marginTop: 6,
+    paddingLeft: 22,
   },
   adminContactText: {
-    fontSize: 11,
-    fontFamily: typography.regular,
-    color: colors.textSecondary,
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  archiveButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.saffronDark,
+    borderRadius: borderRadius.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    marginTop: spacing.xs,
+  },
+  archiveButtonDisabled: {
+    borderColor: colors.disabled,
+  },
+  archiveButtonText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.saffronDark,
+  },
+  archiveButtonTextDisabled: {
+    color: colors.disabled,
   },
   emptyCard: {
-    padding: spacing.lg,
+    backgroundColor: colors.warmIvory,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.xl,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 13,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
 });
-

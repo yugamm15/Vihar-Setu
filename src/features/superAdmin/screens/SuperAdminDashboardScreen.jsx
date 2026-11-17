@@ -1,35 +1,83 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
   ScrollView,
-  TouchableOpacity,
   StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { colors } from '../../../core/theme/colors';
 import { typography } from '../../../core/theme/typography';
 import { borderRadius, shadows, spacing } from '../../../core/theme/spacing';
 import { AppHeader } from '../../../shared/components/AppHeader';
 import { NotificationBellButton } from '../../notifications/components/NotificationBellButton';
-import {
-  LogoutIcon,
-  UsersGroupIcon,
-  SettingsGearIcon,
-  LogsFileIcon,
-  ReportsChartIcon,
-  CheckCircleIcon,
-  MapPinIcon,
-} from '../../../shared/components/CustomSvgIcons';
 import { AreaManagementModal } from '../components/AreaManagementModal';
+import { superAdminDashboardService } from '../services/superAdminDashboardService';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useAlertStore } from '../../../shared/hooks/useAlertStore';
+import { SettingsGearIcon, LogoutIcon } from '../../../shared/components/CustomSvgIcons';
 import { t } from '../../../core/localization/i18n';
+
+const formatDate = (value) => {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
+
+const StatCard = ({ label, value, accent = colors.deepMaroon }) => (
+  <View style={[styles.statCard, shadows.card]}>
+    <Text style={styles.statValue}>{value === null ? '—' : value}</Text>
+    <Text style={[styles.statLabel, { color: accent }]}>{label}</Text>
+  </View>
+);
+
+const Section = ({ title, children }) => (
+  <View style={styles.section}>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    {children}
+  </View>
+);
+
+const value = (metric) => (metric === null ? '—' : metric);
 
 export const SuperAdminDashboardScreen = ({ navigation }) => {
   const { profile, logout } = useAuthStore();
   const { showAlert } = useAlertStore();
+  const [dashboard, setDashboard] = useState(null);
+  const [errors, setErrors] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
+
+  const loadDashboard = useCallback(async (refresh = false) => {
+    if (refresh) setIsRefreshing(true);
+    else setIsLoading(true);
+    try {
+      const result = await superAdminDashboardService.fetchDashboard();
+      setDashboard(result.data);
+      setErrors(result.errors);
+    } catch (error) {
+      setErrors([{ section: 'dashboard', message: error.message }]);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const showUnavailable = (moduleName) => {
+    showAlert({
+      type: 'INFO',
+      title: moduleName,
+      message: 'This dedicated Super Admin module is not available yet.',
+      confirmText: 'OK',
+    });
+  };
 
   const handleLogout = () => {
     showAlert({
@@ -38,206 +86,184 @@ export const SuperAdminDashboardScreen = ({ navigation }) => {
       message: 'Are you sure you want to end your Super Admin session on this device?',
       confirmText: 'Yes, Logout',
       cancelText: 'Cancel',
-      onConfirm: async () => {
-        await logout();
-      },
+      onConfirm: logout,
     });
   };
 
-  const superAdminModules = [
-    {
-      id: 'users',
-      title: 'User & Sevak Verification',
-      desc: 'Approve, verify, assign roles & disable volunteer accounts',
-      icon: UsersGroupIcon,
-      bgColor: '#E8F5E9',
-      iconColor: colors.statusSafe,
-      targetTab: 'RequestsTab',
-    },
-    {
-      id: 'live',
-      title: 'Real-Time Vihar Radar',
-      desc: 'Live GPS corridor tracking, deviation detection & emergency signals',
-      icon: ReportsChartIcon,
-      bgColor: '#FFF8E7',
-      iconColor: colors.saffronDark,
-      targetTab: 'LiveTab',
-    },
-    {
-      id: 'alerts',
-      title: 'Emergency SOS & Alerts Center',
-      desc: 'High-priority SOS escalations, stationary alarms & route issues',
-      icon: LogsFileIcon,
-      bgColor: '#FFEBEE',
-      iconColor: colors.statusEmergency,
-      targetTab: 'AlertsTab',
-    },
-    {
-      id: 'areas',
-      title: 'Operational Area Management',
-      desc: 'Super Administrator area jurisdiction & regional expansion (Surat)',
-      icon: MapPinIcon,
-      bgColor: '#FFF3E0',
-      iconColor: colors.saffronDark,
-      isModalAction: true,
-    },
-    {
-      id: 'config',
-      title: 'System Settings & Telemetry Limits',
-      desc: 'GPS frequency, 50m deviation threshold, stationary timeout',
-      icon: SettingsGearIcon,
-      bgColor: '#E3F2FD',
-      iconColor: '#1976D2',
-      targetTab: 'MoreTab',
-    },
+  const organization = dashboard?.organization;
+  const operations = dashboard?.operations;
+  const safety = dashboard?.safety;
+  const quickLinks = [
+    ['Governance', 'governance'], ['Users', 'users'], ['Monitoring', 'monitoring'], ['Vihars', 'vihars'], ['Communication', 'communication'], ['Reports', 'reports'], ['Areas', 'areas'],
+    ['Administrators', 'administrators'], ['Permissions', 'permissions'], ['System Configuration', 'configuration'], ['Audit Logs', 'audit'],
   ];
 
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
-
       <AppHeader
         title={t('super_admin.dashboard_title')}
         subtitle={profile?.full_name || 'Super Administrator'}
-        showLogo={true}
+        showLogo
         rightElement={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={styles.headerActions}>
             <NotificationBellButton />
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={styles.logoutBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
+            <TouchableOpacity onPress={() => showUnavailable('Profile & Settings')} style={styles.headerButton}>
+              <SettingsGearIcon size={20} color={colors.warmIvory} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
               <LogoutIcon size={20} color={colors.warmIvory} />
             </TouchableOpacity>
           </View>
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadDashboard(true)} tintColor={colors.saffron} />}
+      >
         <View style={[styles.banner, shadows.subtle]}>
-          <Text style={styles.bannerBadge}>CENTRAL GOVERNANCE</Text>
-          <Text style={styles.bannerTitle}>System Control & Security Center</Text>
-          <Text style={styles.bannerDesc}>
-            Manage global security policies, multi-admin escalations, and Vihar telemetry settings.
-          </Text>
+          <Text style={styles.bannerBadge}>{t('super_admin.labels.central_governance')}</Text>
+          <Text style={styles.bannerTitle}>{t('super_admin.labels.system_control')}</Text>
+          <Text style={styles.bannerDesc}>{t('super_admin.labels.live_data')}</Text>
         </View>
 
-        {superAdminModules.map((item) => {
-          const IconComp = item.icon;
-          return (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.85}
-              onPress={() => {
-                if (item.isModalAction) {
-                  setIsAreaModalOpen(true);
-                } else if (item.targetTab) {
-                  navigation.navigate(item.targetTab);
-                }
-              }}
-              style={[styles.moduleCard, shadows.card]}
-            >
-              <View style={styles.cardLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: item.bgColor }]}>
-                  <IconComp size={22} color={item.iconColor} />
-                </View>
-                <View style={styles.moduleInfo}>
-                  <Text style={styles.moduleTitle}>{item.title}</Text>
-                  <Text style={styles.moduleDesc}>{item.desc}</Text>
-                </View>
-              </View>
-              <Text style={styles.arrowChevron}>›</Text>
+        {errors.length > 0 && (
+          <View style={styles.partialError}>
+            <Text style={styles.partialErrorTitle}>{t('super_admin.partial_data')}</Text>
+            <Text style={styles.partialErrorText}>{t('super_admin.partial_data_message')}</Text>
+            <TouchableOpacity onPress={() => loadDashboard(true)}>
+              <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
-          );
-        })}
+          </View>
+        )}
+
+        {isLoading ? (
+          <View style={styles.loading}>
+            <ActivityIndicator size="large" color={colors.saffron} />
+            <Text style={styles.loadingText}>{t('super_admin.common.loading')}</Text>
+          </View>
+        ) : dashboard ? (
+          <>
+            <Section title={t('super_admin.labels.organization')}>
+              <View style={styles.grid}>
+                <StatCard label={t('super_admin.labels.total_users')} value={value(organization.totalUsers)} />
+                <StatCard label={t('super_admin.labels.sevaks')} value={value(organization.totalSevaks)} accent={colors.statusSafe} />
+                <StatCard label={t('super_admin.labels.administrators')} value={value(organization.totalAdministrators)} accent={colors.saffron} />
+                <StatCard label={t('super_admin.labels.super_administrators')} value={value(organization.totalSuperAdministrators)} accent={colors.gold} />
+                <StatCard label={t('super_admin.labels.active_accounts')} value={value(organization.activeAccounts)} accent={colors.statusSafe} />
+                <StatCard label={t('super_admin.labels.disabled_accounts')} value={value(organization.disabledAccounts)} accent={colors.statusEmergency} />
+                <StatCard label={t('super_admin.labels.pending_registrations')} value={value(organization.pendingRegistrations)} accent={colors.saffron} />
+              </View>
+            </Section>
+
+            <Section title={t('super_admin.labels.operations')}>
+              <View style={styles.grid}>
+                <StatCard label={t('super_admin.labels.active_areas')} value={value(operations.totalAreas)} />
+                <StatCard label={t('super_admin.labels.active_vihars')} value={value(operations.activeVihars)} accent={colors.statusSafe} />
+                <StatCard label={t('super_admin.labels.active_sub_vihars')} value={value(operations.activeSubVihars)} accent={colors.saffron} />
+                <StatCard label={t('super_admin.labels.completed_vihars')} value={value(operations.completedVihars)} accent={colors.gold} />
+                <StatCard label={t('super_admin.labels.cities')} value={value(operations.totalCities)} accent={colors.textSecondary} />
+              </View>
+            </Section>
+
+            <Section title={t('super_admin.labels.safety')}>
+              <View style={styles.grid}>
+                <StatCard label={t('super_admin.labels.active_emergencies')} value={value(safety.activeEmergencies)} accent={colors.statusEmergency} />
+                <StatCard label={t('super_admin.labels.route_deviations')} value={value(safety.routeDeviations)} accent={colors.saffron} />
+                <StatCard label={t('super_admin.labels.active_holds')} value={value(safety.activeHolds)} accent={colors.gold} />
+                <StatCard label={t('super_admin.labels.handovers_week')} value={value(safety.recentHandovers)} accent={colors.statusSafe} />
+                <StatCard label={t('super_admin.labels.offline_devices')} value={value(safety.offlineDevices)} accent={colors.statusEmergency} />
+              </View>
+            </Section>
+
+            <Section title={t('super_admin.recent_activity')}>
+              {dashboard.recentActivity.length === 0 ? (
+                <Text style={styles.emptyText}>{t('super_admin.no_activity')}</Text>
+              ) : dashboard.recentActivity.map((item) => (
+                <View key={item.id} style={styles.activityRow}>
+                  <View style={styles.activityType}><Text style={styles.activityTypeText}>{item.type}</Text></View>
+                  <View style={styles.activityInfo}><Text style={styles.activityTitle}>{item.title}</Text><Text style={styles.activityDetail}>{item.detail}</Text></View>
+                  <Text style={styles.activityDate}>{formatDate(item.timestamp)}</Text>
+                </View>
+              ))}
+            </Section>
+
+            <Section title={t('super_admin.modules')}>
+              <View style={styles.quickGrid}>
+                {quickLinks.map(([moduleName, labelKey]) => (
+                  <TouchableOpacity
+                    key={moduleName}
+                    style={[styles.quickLink, shadows.subtle]}
+                    onPress={() => {
+                      if (labelKey === 'governance') navigation.navigate('SuperAdminGovernance');
+                      else if (labelKey === 'areas') setIsAreaModalOpen(true);
+                      else if (labelKey === 'users') navigation.navigate('UsersTab');
+                      else if (labelKey === 'administrators') navigation.navigate('SuperAdminAdministrators');
+                      else if (labelKey === 'monitoring') navigation.navigate('SuperAdminMonitoring');
+                      else if (labelKey === 'vihars') navigation.navigate('SuperAdminViharManagement');
+                      else if (labelKey === 'communication') navigation.navigate('SuperAdminCommunication');
+                      else if (labelKey === 'reports') navigation.navigate('SuperAdminReports');
+                      else if (labelKey === 'configuration') navigation.navigate('SuperAdminConfiguration');
+                      else if (labelKey === 'audit') navigation.navigate('SuperAdminAuditLogs');
+                      else showUnavailable(moduleName);
+                    }}
+                  >
+                    <Text style={styles.quickLinkText}>{t(`super_admin.labels.${labelKey}`)}</Text>
+                    <Text style={styles.quickLinkStatus}>{['governance', 'areas', 'monitoring', 'vihars', 'communication', 'reports', 'configuration', 'audit'].includes(labelKey) ? t('super_admin.labels.open') : t('super_admin.labels.coming_soon')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Section>
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>Dashboard data could not be loaded.</Text>
+            <TouchableOpacity onPress={() => loadDashboard()}>
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Phase 28: Area Management Modal */}
-      <AreaManagementModal
-        visible={isAreaModalOpen}
-        onClose={() => setIsAreaModalOpen(false)}
-      />
+      <AreaManagementModal visible={isAreaModalOpen} onClose={() => setIsAreaModalOpen(false)} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.warmIvory,
-  },
-  logoutBtn: {
-    padding: spacing.xs,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
-  banner: {
-    backgroundColor: colors.deepMaroon,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  bannerBadge: {
-    ...typography.caption,
-    color: colors.goldLight,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  bannerTitle: {
-    ...typography.h3,
-    color: colors.warmIvory,
-  },
-  bannerDesc: {
-    ...typography.bodySmall,
-    color: colors.goldMuted,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  moduleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.cardBorder,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.md,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moduleInfo: {
-    flex: 1,
-  },
-  moduleTitle: {
-    ...typography.h4,
-    color: colors.deepMaroon,
-  },
-  moduleDesc: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  arrowChevron: {
-    fontSize: 22,
-    color: colors.saffron,
-    fontWeight: '700',
-    marginLeft: spacing.sm,
-  },
+  container: { flex: 1, backgroundColor: colors.warmIvory },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerButton: { padding: spacing.xs },
+  scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  banner: { backgroundColor: colors.deepMaroon, borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.lg },
+  bannerBadge: { ...typography.caption, color: colors.goldLight, fontWeight: '800', letterSpacing: 1.2 },
+  bannerTitle: { ...typography.h3, color: colors.warmIvory, marginTop: 4 },
+  bannerDesc: { ...typography.bodySmall, color: colors.goldMuted, marginTop: 4, lineHeight: 18 },
+  section: { marginBottom: spacing.lg },
+  sectionTitle: { ...typography.h4, color: colors.deepMaroon, marginBottom: spacing.sm },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  statCard: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.cardBorder, padding: spacing.md, width: '31%', minWidth: 96, flexGrow: 1 },
+  statValue: { ...typography.h3, color: colors.deepMaroon, fontWeight: '800' },
+  statLabel: { ...typography.caption, marginTop: 4, lineHeight: 15 },
+  partialError: { backgroundColor: '#FFF8E7', borderColor: colors.saffron, borderWidth: 1, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.lg },
+  partialErrorTitle: { ...typography.body, color: colors.deepMaroon, fontWeight: '700' },
+  partialErrorText: { ...typography.caption, color: colors.textSecondary, marginTop: 3 },
+  retryText: { color: colors.deepMaroon, fontWeight: '700', marginTop: spacing.sm },
+  loading: { alignItems: 'center', padding: spacing.xxxl },
+  loadingText: { ...typography.bodySmall, color: colors.textSecondary, marginTop: spacing.md },
+  emptyState: { alignItems: 'center', padding: spacing.xxxl },
+  emptyText: { ...typography.bodySmall, color: colors.textSecondary, padding: spacing.md },
+  activityRow: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.cardBorder },
+  activityType: { backgroundColor: colors.softCream, borderRadius: borderRadius.sm, paddingHorizontal: spacing.xs, paddingVertical: 3 },
+  activityTypeText: { fontSize: 9, color: colors.deepMaroon, fontWeight: '800' },
+  activityInfo: { flex: 1, marginLeft: spacing.sm },
+  activityTitle: { ...typography.bodySmall, color: colors.deepMaroon, fontWeight: '700' },
+  activityDetail: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  activityDate: { ...typography.caption, color: colors.textSecondary, marginLeft: spacing.sm },
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  quickLink: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.cardBorder, padding: spacing.md, width: '48%', minHeight: 64 },
+  quickLinkText: { ...typography.bodySmall, color: colors.deepMaroon, fontWeight: '700' },
+  quickLinkStatus: { ...typography.caption, color: colors.textSecondary, marginTop: 5 },
 });

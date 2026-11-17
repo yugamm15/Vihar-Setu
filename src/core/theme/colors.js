@@ -5,22 +5,32 @@
 export const colors = {
   // Primary Jain-Themed Palette
   deepMaroon: '#641C2D',
+  primary: '#641C2D',
+  primaryDark: '#45121E',
   maroonLight: '#8A273F',
   maroonDark: '#45121E',
 
   saffron: '#D98A2B',
+  secondary: '#D98A2B',
   saffronLight: '#F2A649',
   saffronDark: '#B36C18',
 
   gold: '#C9A44C',
+  accent: '#C9A44C',
   goldLight: '#DEC073',
   goldMuted: '#EEDC9A',
 
   // Surfaces & Backgrounds
+  background: '#FFFDF7',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#F7F1E5',
+  surfaceBorder: '#EDE3D2',
   warmIvory: '#FFFDF7',
   softCream: '#F7F1E5',
   cardBackground: '#FFFFFF',
   cardBorder: '#EDE3D2',
+  white: '#FFFFFF',
+  gray500: '#9E8C8C',
 
   // Typography
   textPrimary: '#2B2020',
@@ -37,6 +47,8 @@ export const colors = {
 
   statusEmergency: '#B83232',
   statusEmergencyBg: '#FFEBEE',
+  emergency: '#B83232',
+  warning: '#D99A24',
 
   statusOffline: '#757575',
   statusOfflineBg: '#EEEEEE',

@@ -58,10 +58,9 @@ class NotificationService {
    */
   async markAsRead(notificationId) {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
+      const { error } = await supabase.rpc('mark_notification_read', {
+        p_notification_id: notificationId,
+      });
 
       if (error) throw error;
       return { success: true };
@@ -80,7 +79,7 @@ class NotificationService {
 
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
+        .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('user_id', userId)
         .eq('is_read', false);
 
@@ -110,4 +109,3 @@ class NotificationService {
 }
 
 export const notificationService = new NotificationService();
-

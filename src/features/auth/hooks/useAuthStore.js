@@ -28,24 +28,45 @@ export const useAuthStore = create((set, get) => ({
       const savedRole = await storage.getItem('auth_role');
 
       if (savedUser && savedRole) {
-        const currentStatus = savedProfile?.status || 'PENDING';
+        const { profile: freshProfile, role: freshRole, error } =
+          await authService.fetchUserProfileAndRole(savedUser.id);
+        const isValidRole = Object.values(ROLES).includes(freshRole);
+        const isAllowedStatus =
+          freshRole === ROLES.SEVAK
+            ? freshProfile?.status === 'ACTIVE' || freshProfile?.status === 'PENDING'
+            : freshProfile?.status === 'ACTIVE';
 
-        set({
-          user: savedUser,
-          profile: savedProfile,
-          role: savedRole,
-          status: currentStatus,
-          language: savedLang,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-
-        // Background check for latest status from Supabase
-        if (savedUser.id) {
-          authService.checkApprovalStatus(savedUser.id).then(({ status: freshStatus, profile: freshProfile }) => {
-            if (freshStatus && freshStatus !== currentStatus) {
-              get().setProfileStatus(freshStatus, freshProfile);
-            }
+        if (
+          error ||
+          !freshProfile ||
+          !isValidRole ||
+          !isAllowedStatus
+        ) {
+          await storage.removeItem('auth_user');
+          await storage.removeItem('auth_profile');
+          await storage.removeItem('auth_role');
+          set({
+            language: savedLang,
+            isAuthenticated: false,
+            isLoading: false,
+            error:
+              freshProfile?.status === 'DISABLED'
+                ? 'Your account has been suspended. Please contact administrator.'
+                : freshProfile?.status === 'REJECTED'
+                ? 'Your volunteer registration was not approved.'
+                : 'Your session is no longer authorized.',
+          });
+        } else {
+          await storage.setItem('auth_profile', freshProfile);
+          await storage.setItem('auth_role', freshRole);
+          set({
+            user: savedUser,
+            profile: freshProfile,
+            role: freshRole,
+            status: freshProfile.status || 'PENDING',
+            language: savedLang,
+            isAuthenticated: true,
+            isLoading: false,
           });
         }
       } else {
@@ -85,8 +106,15 @@ export const useAuthStore = create((set, get) => ({
     }
 
     const { user, profile, role, session } = data;
-    const resolvedRole = role || ROLES.SUPER_ADMIN;
-    const resolvedStatus = 'ACTIVE';
+    if (!user || !profile || !Object.values(ROLES).includes(role)) {
+      set({
+        isLoading: false,
+        error: 'Authenticated account is not authorized for this application.',
+      });
+      return false;
+    }
+    const resolvedRole = role;
+    const resolvedStatus = profile.status;
 
     await storage.setItem('auth_user', user);
     await storage.setItem('auth_profile', profile);
@@ -137,7 +165,15 @@ export const useAuthStore = create((set, get) => ({
     }
 
     const { user, profile, role, session } = data;
-    const resolvedRole = role || ROLES.SEVAK;
+    if (!user || !profile || !Object.values(ROLES).includes(role)) {
+      set({
+        isLoading: false,
+        error: 'Authenticated account is not authorized for this application.',
+      });
+      return { success: false };
+    }
+
+    const resolvedRole = role;
     const resolvedStatus = profile?.status || 'PENDING';
 
     // Save to persistent storage
