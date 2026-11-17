@@ -27,47 +27,8 @@ import { viharService } from '../../vihar/services/viharService';
 import { adminService } from '../services/adminService';
 import { policeEmergencyService } from '../../vihar/services/policeEmergencyService';
 
-const SAMPLE_ALERTS = [
-  {
-    id: 'alt-001',
-    type: 'DEVIATION', // EMERGENCY | DEVIATION | LOW_BATTERY | STATIONARY
-    severity: 'WARNING',
-    title: 'Route Deviation Detected',
-    message: 'Sevak unit is 210m away from planned Surat vihar path near Adajan Gam crossroad.',
-    sevakName: 'Hetaben Mehta',
-    phone: '+919876500000',
-    location: 'Pal Rander Road, Surat',
-    timestamp: '5 mins ago',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'alt-002',
-    type: 'LOW_BATTERY',
-    severity: 'WARNING',
-    title: 'Low Battery Alert',
-    message: 'Sevak device battery dropped below 18% during active tracking.',
-    sevakName: 'Pravinbhai Shah',
-    phone: '+919812345678',
-    location: 'Athwa Lines, Surat',
-    timestamp: '22 mins ago',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'alt-003',
-    type: 'EMERGENCY',
-    severity: 'EMERGENCY',
-    title: 'Emergency SOS Triggered',
-    message: 'Emergency button pressed during morning vihar near Ghod Dod Road.',
-    sevakName: 'Rekhaben Shah',
-    phone: '+919876543210',
-    location: 'City Light Road, Surat',
-    timestamp: 'Yesterday, 07:15 AM',
-    status: 'RESOLVED',
-  },
-];
-
 export const AdminAlertsScreen = () => {
-  const [alerts, setAlerts] = useState(SAMPLE_ALERTS);
+  const [alerts, setAlerts] = useState([]);
   const [activeTab, setActiveTab] = useState('ACTIVE'); // ACTIVE | RESOLVED | ALL
   const [resolvedModalVisible, setResolvedModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -91,10 +52,11 @@ export const AdminAlertsScreen = () => {
         }));
         setAlerts(formatted);
       } else {
-        setAlerts(SAMPLE_ALERTS);
+        setAlerts([]);
       }
     } catch (e) {
-      setAlerts(SAMPLE_ALERTS);
+      console.warn('[AdminAlertsScreen] Error loading alerts:', e);
+      setAlerts([]);
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +118,7 @@ export const AdminAlertsScreen = () => {
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
         title="Alerts Center"
-        subtitle="Super Admin Safety & Alerts Monitoring"
+        subtitle="Safety & Emergency Response Monitoring"
         showLogo
       />
 

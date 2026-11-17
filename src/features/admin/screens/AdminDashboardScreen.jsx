@@ -24,6 +24,7 @@ import {
   MapPinIcon,
   AlertsBellIcon,
   CheckCircleIcon,
+  UsersGroupIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { adminService } from '../services/adminService';
 import { viharService } from '../../vihar/services/viharService';
@@ -31,40 +32,21 @@ import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { SAFETY_STATUS } from '../../../core/constants/safetyStatus';
 import { t } from '../../../core/localization/i18n';
 
-const DEMO_LIVE_VIHARS = [
-  {
-    id: 'demo-1',
-    sangha: 'Pujya Sadhviji Shree Ratnamala Maharaj Saheb',
-    source: 'Athwagate Jinalay',
-    destination: 'Adajan Sangh',
-    leadSevak: 'Hetaben Mehta',
-    battery: '88%',
-    speed: '4.2 km/h',
-    status: SAFETY_STATUS.SAFE,
-  },
-  {
-    id: 'demo-2',
-    sangha: 'Pujya Sadhviji Shree Hitaprabha Maharaj Saheb',
-    source: 'Ghod Dod Road',
-    destination: 'Vesu Aradhana Bhavan',
-    leadSevak: 'Rekhaben Shah',
-    battery: '92%',
-    speed: '3.8 km/h',
-    status: SAFETY_STATUS.SAFE,
-  },
-];
-
 export const AdminDashboardScreen = ({ navigation }) => {
   const { profile } = useAuthStore();
   const [metrics, setMetrics] = useState({
+    totalSevaks: 0,
     pendingRequests: 0,
     activeSevaks: 0,
-    activeVihars: 2,
-    safeCount: 2,
+    totalVihars: 0,
+    activeVihars: 0,
+    totalThana: 0,
+    totalDistanceKm: '0.0',
+    safeCount: 0,
     warningCount: 0,
     emergencyCount: 0,
   });
-  const [activeViharsList, setActiveViharsList] = useState(DEMO_LIVE_VIHARS);
+  const [activeViharsList, setActiveViharsList] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -74,7 +56,9 @@ export const AdminDashboardScreen = ({ navigation }) => {
         viharService.getAllActiveVihars(),
       ]);
 
-      setMetrics(metricsData);
+      if (metricsData) {
+        setMetrics(metricsData);
+      }
 
       if (dbVihars && dbVihars.length > 0) {
         const formatted = dbVihars.map((v) => {
@@ -92,17 +76,17 @@ export const AdminDashboardScreen = ({ navigation }) => {
         });
         setActiveViharsList(formatted);
       } else {
-        setActiveViharsList(DEMO_LIVE_VIHARS);
+        setActiveViharsList([]);
       }
     } catch (e) {
       console.warn('[AdminDashboard] Error loading dashboard data:', e);
+      setActiveViharsList([]);
     }
   }, []);
 
   useEffect(() => {
     loadData();
 
-    // Subscribe to Realtime requests updates
     const unsubscribe = adminService.subscribeToRequests(() => {
       loadData();
     });
@@ -123,7 +107,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
         title={t('app_name')}
-        subtitle="Super Admin Console • Surat"
+        subtitle="Administrator Console • Surat"
         showLogo
         rightElement={<NotificationBellButton />}
       />
@@ -157,7 +141,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
 
             <Text style={styles.urgentTitle}>New Sevak Registration Requests</Text>
             <Text style={styles.urgentSub}>
-              New volunteers have submitted their profile details and are waiting for your verification to start seva.
+              New volunteers have submitted profile details and are waiting for your verification to start seva.
             </Text>
 
             <View style={styles.urgentActionRow}>
@@ -166,54 +150,148 @@ export const AdminDashboardScreen = ({ navigation }) => {
           </TouchableOpacity>
         ) : null}
 
-        {/* Overview Stats 4-Grid */}
-        <Text style={styles.sectionHeading}>Vihar Safety Overview</Text>
-        <View style={styles.statsGrid}>
-          {/* Active Vihars */}
-          <View style={[styles.statBox, shadows.card]}>
-            <View style={[styles.statIconCircle, { backgroundColor: '#FFF8E7' }]}>
-              <NavigationIcon size={20} color={colors.saffron} />
+        {/* ================================================================ */}
+        {/* THE 4 PRIMARY SUMMARY BOXES (As in original Vihar Setu design) */}
+        {/* ================================================================ */}
+        <Text style={styles.sectionHeading}>Vihar Seva Summary</Text>
+        <View style={styles.summaryGrid}>
+          {/* 1. Total Sevika */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('RequestsTab')}
+            style={[styles.summaryCard, shadows.card]}
+          >
+            <View style={styles.summaryCardHeader}>
+              <View style={[styles.summaryIconWrap, { backgroundColor: '#FFF3E0' }]}>
+                <UsersGroupIcon size={20} color={colors.saffronDark} />
+              </View>
+              <View style={[styles.summaryTag, { backgroundColor: '#FFF8E7' }]}>
+                <Text style={[styles.summaryTagText, { color: colors.saffronDark }]}>SEVIKA</Text>
+              </View>
             </View>
-            <Text style={styles.statNumber}>{activeViharsList.length}</Text>
-            <Text style={styles.statLabel}>Active Vihars</Text>
+            <Text style={styles.summaryValue}>{metrics.totalSevaks ?? 0}</Text>
+            <Text style={styles.summaryTitle}>Total Sevika</Text>
+            <View style={styles.summaryFooterRow}>
+              <View style={[styles.microDot, { backgroundColor: colors.statusSafe }]} />
+              <Text style={styles.summaryFooterText}>
+                {metrics.activeSevaks ?? 0} Active • {metrics.pendingRequests ?? 0} Pending
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* 2. Total Vihar */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('LiveTab')}
+            style={[styles.summaryCard, shadows.card]}
+          >
+            <View style={styles.summaryCardHeader}>
+              <View style={[styles.summaryIconWrap, { backgroundColor: '#FBE9E7' }]}>
+                <NavigationIcon size={20} color={colors.deepMaroon} />
+              </View>
+              <View style={[styles.summaryTag, { backgroundColor: '#FFF0F0' }]}>
+                <Text style={[styles.summaryTagText, { color: colors.deepMaroon }]}>ROUTES</Text>
+              </View>
+            </View>
+            <Text style={styles.summaryValue}>{metrics.totalVihars ?? 0}</Text>
+            <Text style={styles.summaryTitle}>Total Vihar</Text>
+            <View style={styles.summaryFooterRow}>
+              <View style={[styles.microDot, { backgroundColor: colors.saffronDark }]} />
+              <Text style={styles.summaryFooterText}>
+                {metrics.activeVihars ?? activeViharsList.length ?? 0} Ongoing Trips Now
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* 3. Total Thana */}
+          <View style={[styles.summaryCard, shadows.card]}>
+            <View style={styles.summaryCardHeader}>
+              <View style={[styles.summaryIconWrap, { backgroundColor: '#FFF8E1' }]}>
+                <ShieldIcon size={20} color={colors.gold} />
+              </View>
+              <View style={[styles.summaryTag, { backgroundColor: '#FFFDE7' }]}>
+                <Text style={[styles.summaryTagText, { color: colors.gold }]}>SANGHA</Text>
+              </View>
+            </View>
+            <Text style={styles.summaryValue}>{metrics.totalThana}</Text>
+            <Text style={styles.summaryTitle}>Total Thana</Text>
+            <View style={styles.summaryFooterRow}>
+              <View style={[styles.microDot, { backgroundColor: colors.statusSafe }]} />
+              <Text style={styles.summaryFooterText}>
+                Sadhviji Bhagwants
+              </Text>
+            </View>
           </View>
 
-          {/* Safe Sevaks */}
-          <View style={[styles.statBox, shadows.card]}>
-            <View style={[styles.statIconCircle, { backgroundColor: '#D4EDDA' }]}>
-              <ShieldIcon size={20} color={colors.statusSafe} />
+          {/* 4. Total Distance */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('LiveTab')}
+            style={[styles.summaryCard, shadows.card]}
+          >
+            <View style={styles.summaryCardHeader}>
+              <View style={[styles.summaryIconWrap, { backgroundColor: '#E8F5E9' }]}>
+                <MapPinIcon size={20} color={colors.statusSafe} />
+              </View>
+              <View style={[styles.summaryTag, { backgroundColor: '#E8F8F0' }]}>
+                <Text style={[styles.summaryTagText, { color: colors.statusSafe }]}>GPS KM</Text>
+              </View>
             </View>
-            <Text style={[styles.statNumber, { color: colors.statusSafe }]}>
-              {metrics.safeCount || activeViharsList.length}
+            <Text style={styles.summaryValue}>
+              {metrics.totalDistanceKm} <Text style={styles.summaryUnit}>km</Text>
             </Text>
-            <Text style={styles.statLabel}>Safe Status</Text>
-          </View>
-
-          {/* Deviation Warnings */}
-          <View style={[styles.statBox, shadows.card]}>
-            <View style={[styles.statIconCircle, { backgroundColor: '#FFF3CD' }]}>
-              <AlertTriangleIcon size={20} color={colors.statusWarning} />
+            <Text style={styles.summaryTitle}>Total Distance</Text>
+            <View style={styles.summaryFooterRow}>
+              <View style={[styles.microDot, { backgroundColor: colors.statusSafe }]} />
+              <Text style={styles.summaryFooterText}>
+                Tracked Corridor Seva
+              </Text>
             </View>
-            <Text style={[styles.statNumber, { color: colors.saffronDark }]}>
-              {metrics.warningCount}
-            </Text>
-            <Text style={styles.statLabel}>Deviations</Text>
-          </View>
-
-          {/* Emergency SOS */}
-          <View style={[styles.statBox, shadows.card]}>
-            <View style={[styles.statIconCircle, { backgroundColor: '#F8D7DA' }]}>
-              <AlertsBellIcon size={20} color={colors.statusEmergency} />
-            </View>
-            <Text style={[styles.statNumber, { color: colors.statusEmergency }]}>
-              {metrics.emergencyCount}
-            </Text>
-            <Text style={styles.statLabel}>Emergency SOS</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Quick Action Shortcuts */}
-        <Text style={styles.sectionHeading}>Quick Administration</Text>
+        {/* ================================================================ */}
+        {/* LIVE CORRIDOR RADAR STRIP (Link to Live Tab) */}
+        {/* ================================================================ */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => navigation.navigate('LiveTab')}
+          style={[styles.radarBannerCard, shadows.card]}
+        >
+          <View style={styles.radarBannerHeader}>
+            <View style={styles.radarPulseWrap}>
+              <View style={styles.radarPulseDot} />
+              <Text style={styles.radarBannerTitle}>LIVE CORRIDOR RADAR (SURAT)</Text>
+            </View>
+            <Text style={styles.radarBannerLink}>Open Live Map →</Text>
+          </View>
+
+          <View style={styles.statusChipsRow}>
+            <View style={[styles.statusChipItem, { backgroundColor: '#E8F5E9' }]}>
+              <Text style={[styles.statusChipText, { color: '#2E7D5B' }]}>
+                ✓ {metrics.safeCount || activeViharsList.length} Safe
+              </Text>
+            </View>
+            <View style={[styles.statusChipItem, { backgroundColor: '#FFF9E6' }]}>
+              <Text style={[styles.statusChipText, { color: '#641C2D' }]}>
+                ⏸ 0 Hold
+              </Text>
+            </View>
+            <View style={[styles.statusChipItem, { backgroundColor: '#FFF8E1' }]}>
+              <Text style={[styles.statusChipText, { color: '#D99A24' }]}>
+                ⚠ {metrics.warningCount || 0} Drift
+              </Text>
+            </View>
+            <View style={[styles.statusChipItem, { backgroundColor: '#FFEBEE' }]}>
+              <Text style={[styles.statusChipText, { color: '#B83232' }]}>
+                ⚡ {metrics.emergencyCount || 0} SOS
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Quick Action Navigation Buttons */}
+        <Text style={styles.sectionHeading}>Administrative Actions</Text>
         <View style={styles.quickActionRow}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -221,10 +299,10 @@ export const AdminDashboardScreen = ({ navigation }) => {
             style={[styles.quickCard, shadows.card]}
           >
             <View style={styles.quickIconCircle}>
-              <MapPinIcon size={24} color={colors.deepMaroon} />
+              <MapPinIcon size={22} color={colors.deepMaroon} />
             </View>
             <Text style={styles.quickTitle}>Live Map</Text>
-            <Text style={styles.quickSub}>Monitor active routes</Text>
+            <Text style={styles.quickSub}>Monitor routes</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -233,9 +311,9 @@ export const AdminDashboardScreen = ({ navigation }) => {
             style={[styles.quickCard, shadows.card]}
           >
             <View style={styles.quickIconCircle}>
-              <RequestsIcon size={24} color={colors.deepMaroon} />
+              <RequestsIcon size={22} color={colors.deepMaroon} />
             </View>
-            <Text style={styles.quickTitle}>Sevak Requests</Text>
+            <Text style={styles.quickTitle}>Sevak Approvals</Text>
             <Text style={styles.quickSub}>
               {metrics.pendingRequests > 0
                 ? `${metrics.pendingRequests} Pending`
@@ -249,39 +327,55 @@ export const AdminDashboardScreen = ({ navigation }) => {
             style={[styles.quickCard, shadows.card]}
           >
             <View style={styles.quickIconCircle}>
-              <AlertTriangleIcon size={24} color={colors.deepMaroon} />
+              <AlertTriangleIcon size={22} color={colors.deepMaroon} />
             </View>
             <Text style={styles.quickTitle}>Alerts Center</Text>
-            <Text style={styles.quickSub}>0 Critical issues</Text>
+            <Text style={styles.quickSub}>
+              {metrics.emergencyCount > 0 ? `${metrics.emergencyCount} Critical` : '0 Critical'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Live Active Vihars List */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeading}>Live Active Vihars (Surat)</Text>
+          <Text style={styles.sectionHeading}>Active Ongoing Vihars</Text>
           <TouchableOpacity onPress={() => navigation.navigate('LiveTab')}>
-            <Text style={styles.seeAllLink}>View Live Map →</Text>
+            <Text style={styles.seeAllLink}>View Live Radar →</Text>
           </TouchableOpacity>
         </View>
 
-        {activeViharsList.map((item) => (
-          <View key={item.id} style={[styles.viharCard, shadows.card]}>
-            <View style={styles.viharHeader}>
-              <View style={styles.viharHeaderInfo}>
-                <Text style={styles.viharSangha}>{item.sangha}</Text>
-                <Text style={styles.viharRoute}>
-                  {item.source} → {item.destination}
-                </Text>
-              </View>
-              <StatusBadge status={item.status} />
-            </View>
-
-            <View style={styles.viharFooter}>
-              <Text style={styles.viharSevak}>Lead Sevak: {item.leadSevak}</Text>
-              <Text style={styles.viharMetric}>Battery: {item.battery} • {item.speed}</Text>
-            </View>
+        {activeViharsList.length === 0 ? (
+          <View style={styles.emptyViharBox}>
+            <Text style={styles.emptyViharTitle}>No Active Vihars In Corridor</Text>
+            <Text style={styles.emptyViharSub}>
+              All Sadhviji Bhagwants and Sevaks are currently in Upashrays or at rest.
+            </Text>
           </View>
-        ))}
+        ) : (
+          activeViharsList.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('LiveTab')}
+              style={[styles.viharCard, shadows.card]}
+            >
+              <View style={styles.viharHeader}>
+                <View style={styles.viharHeaderInfo}>
+                  <Text style={styles.viharSangha}>{item.sangha}</Text>
+                  <Text style={styles.viharRoute}>
+                    {item.source} → {item.destination}
+                  </Text>
+                </View>
+                <StatusBadge status={item.status} />
+              </View>
+
+              <View style={styles.viharFooter}>
+                <Text style={styles.viharSevak}>Lead Sevak: {item.leadSevak}</Text>
+                <Text style={styles.viharMetric}>Battery: {item.battery} • {item.speed}</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -295,6 +389,28 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.md,
     paddingBottom: spacing.xxxl,
+  },
+  emptyViharBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    marginVertical: spacing.sm,
+  },
+  emptyViharTitle: {
+    ...typography.bodyMedium,
+    color: colors.deepMaroon,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  emptyViharSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   urgentApprovalCard: {
     backgroundColor: '#FFF8E7',
@@ -353,9 +469,9 @@ const styles = StyleSheet.create({
   sectionHeading: {
     ...typography.bodyMedium,
     color: colors.deepMaroon,
-    fontWeight: '700',
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     marginBottom: spacing.sm,
     marginTop: spacing.xs,
   },
@@ -369,40 +485,134 @@ const styles = StyleSheet.create({
   seeAllLink: {
     ...typography.caption,
     color: colors.saffronDark,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  statsGrid: {
+  /* The 4 Elevated Primary Summary Boxes */
+  summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
-  statBox: {
-    width: '48%',
+  summaryCard: {
+    width: '48.5%',
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     borderWidth: 1.5,
     borderColor: colors.cardBorder,
   },
-  statIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  summaryCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  summaryIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
   },
-  statNumber: {
+  summaryTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  summaryTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  summaryValue: {
     ...typography.h2,
     color: colors.deepMaroon,
-    fontSize: 24,
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 30,
+    marginTop: 2,
   },
-  statLabel: {
+  summaryUnit: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  summaryTitle: {
     ...typography.caption,
+    color: colors.deepMaroon,
+    fontWeight: '800',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  summaryFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 5,
+  },
+  microDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  summaryFooterText: {
+    fontSize: 10,
     color: colors.textSecondary,
     fontWeight: '600',
   },
+  /* Live Radar Banner */
+  radarBannerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.lg,
+  },
+  radarBannerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  radarPulseWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  radarPulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.statusSafe,
+  },
+  radarBannerTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.deepMaroon,
+    letterSpacing: 0.5,
+  },
+  radarBannerLink: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.saffronDark,
+  },
+  statusChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  statusChipItem: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  statusChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  /* Quick Actions */
   quickActionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -418,9 +628,9 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
   },
   quickIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.softCream,
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,9 +638,10 @@ const styles = StyleSheet.create({
   },
   quickTitle: {
     ...typography.caption,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.deepMaroon,
     textAlign: 'center',
+    fontSize: 11,
   },
   quickSub: {
     fontSize: 10,
@@ -438,6 +649,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
+  /* Vihar Cards */
   viharCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.xl,
@@ -460,7 +672,7 @@ const styles = StyleSheet.create({
   viharSangha: {
     ...typography.bodyMedium,
     color: colors.deepMaroon,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: 20,
   },
   viharRoute: {
@@ -484,6 +696,6 @@ const styles = StyleSheet.create({
   viharMetric: {
     ...typography.caption,
     color: colors.saffronDark,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

@@ -244,7 +244,7 @@ export const AdminRequestsScreen = ({ navigation }) => {
       {/* Header */}
       <AppHeader
         title="Sevak Requests"
-        subtitle="Super Admin Verification & Approval"
+        subtitle={isSuperAdmin ? 'Super Admin Verification & Approval' : 'Sevak Verification & Approval'}
         showLogo
       />
 

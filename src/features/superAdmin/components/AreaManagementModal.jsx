@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -20,7 +20,7 @@ import {
 } from '../../../shared/components/CustomSvgIcons';
 import { superAdminAreaService } from '../services/superAdminAreaService';
 
-export const AreaManagementModal = ({ visible, onClose }) => {
+export const AreaManagementModal = ({ visible, onClose, isSuperAdmin = false }) => {
   const [areas, setAreas] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -171,19 +171,21 @@ export const AreaManagementModal = ({ visible, onClose }) => {
               <Text style={styles.sectionTitle}>
                 Operational Areas ({areas.length})
               </Text>
-              <TouchableOpacity
-                onPress={() => setShowAddForm(!showAddForm)}
-                style={styles.addAreaBtn}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.addAreaBtnText}>
-                  {showAddForm ? 'Cancel' : '+ Add Area'}
-                </Text>
-              </TouchableOpacity>
+              {isSuperAdmin && (
+                <TouchableOpacity
+                  onPress={() => setShowAddForm(!showAddForm)}
+                  style={styles.addAreaBtn}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.addAreaBtnText}>
+                    {showAddForm ? 'Cancel' : '+ Add Area'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Add Area Form Card */}
-            {showAddForm && (
+            {isSuperAdmin && showAddForm && (
               <View style={[styles.addAreaCard, shadows.sm]}>
                 <Text style={styles.formSectionHeader}>New Area Jurisdiction</Text>
 

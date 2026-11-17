@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdminDashboardScreen } from '../features/admin/screens/AdminDashboardScreen';
 import { AdminLiveTrackingScreen } from '../features/admin/screens/AdminLiveTrackingScreen';
+import { AdminLiveDetailScreen } from '../features/admin/screens/AdminLiveDetailScreen';
 import { AdminAlertsScreen } from '../features/admin/screens/AdminAlertsScreen';
 import { AdminRequestsScreen } from '../features/admin/screens/AdminRequestsScreen';
 import { AdminMoreScreen } from '../features/admin/screens/AdminMoreScreen';
@@ -19,6 +21,33 @@ import { colors } from '../core/theme/colors';
 import { typography } from '../core/theme/typography';
 
 const Tab = createBottomTabNavigator();
+const LiveStack = createNativeStackNavigator();
+
+/**
+ * Stack Navigator for Admin Live Monitoring Tab
+ * Allows seamless transitions between Screen A (Radar Map + List)
+ * and Screen B (Single Vihar Live Detail & Track Canvas).
+ */
+const AdminLiveStackNavigator = () => {
+  return (
+    <LiveStack.Navigator
+      initialRouteName="AdminLiveTracking"
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+      }}
+    >
+      <LiveStack.Screen
+        name="AdminLiveTracking"
+        component={AdminLiveTrackingScreen}
+      />
+      <LiveStack.Screen
+        name="AdminLiveDetailScreen"
+        component={AdminLiveDetailScreen}
+      />
+    </LiveStack.Navigator>
+  );
+};
 
 export const AdminNavigator = () => {
   const insets = useSafeAreaInsets();
@@ -84,7 +113,7 @@ export const AdminNavigator = () => {
       />
       <Tab.Screen
         name="LiveTab"
-        component={AdminLiveTrackingScreen}
+        component={AdminLiveStackNavigator}
         options={{
           tabBarLabel: 'Live',
           tabBarIcon: ({ color }) => <LiveRadarIcon size={22} color={color} />,

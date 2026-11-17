@@ -274,6 +274,14 @@ export const useAuthStore = create((set, get) => ({
   },
 
   /**
+   * Switch Role (for demonstration and multi-role testing)
+   */
+  switchRole: async (targetRole) => {
+    await storage.setItem('auth_role', targetRole);
+    set({ role: targetRole });
+  },
+
+  /**
    * Logout
    */
   logout: async () => {

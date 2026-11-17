@@ -35,17 +35,20 @@ import {
   CloseIcon,
   PhoneIcon,
   NavigationIcon,
+  MapPinIcon,
 } from '../../../shared/components/CustomSvgIcons';
+import { AreaManagementModal } from '../../superAdmin/components/AreaManagementModal';
 import { useAuthStore } from '../../auth/hooks/useAuthStore';
 import { useAlertStore } from '../../../shared/hooks/useAlertStore';
 import { adminService } from '../services/adminService';
 import { ROLES } from '../../../core/constants/roles';
 
 export const AdminMoreScreen = () => {
-  const { user, profile, role, logout } = useAuthStore();
+  const { user, profile, role, logout, switchRole } = useAuthStore();
   const { showAlert } = useAlertStore();
 
   const [activeModal, setActiveModal] = useState(null); // 'REPORTS' | 'USERS' | 'LOGS' | 'SETTINGS' | 'SECURITY' | 'HELP' | 'ABOUT'
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
 
   // Reports state
   const [reportsData, setReportsData] = useState({
@@ -118,8 +121,10 @@ export const AdminMoreScreen = () => {
   const handleLogout = () => {
     showAlert({
       type: 'CONFIRM',
-      title: 'Logout Super Admin',
-      message: 'Are you sure you want to end your Super Admin session on this device?',
+      title: isSuperAdmin ? 'Logout Super Admin' : 'Logout Admin',
+      message: isSuperAdmin
+        ? 'Are you sure you want to end your Super Admin session on this device?'
+        : 'Are you sure you want to end your Admin session on this device?',
       confirmText: 'Yes, Logout',
       cancelText: 'Cancel',
       onConfirm: async () => {
@@ -147,8 +152,8 @@ export const AdminMoreScreen = () => {
     <View style={styles.container}>
       <StatusBar backgroundColor={colors.deepMaroon} barStyle="light-content" />
       <AppHeader
-        title="Super Admin Console"
-        subtitle="Control & System Operations"
+        title={isSuperAdmin ? 'Super Admin Console' : 'Admin Console'}
+        subtitle={isSuperAdmin ? 'Control & System Operations' : 'Regional Administration & Operations'}
         showLogo
       />
 
@@ -223,6 +228,30 @@ export const AdminMoreScreen = () => {
             </View>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
+
+          {isSuperAdmin && (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setIsAreaModalOpen(true)}
+                style={styles.menuItem}
+              >
+                <View style={[styles.menuIconCircle, { backgroundColor: '#FFF3E0' }]}>
+                  <MapPinIcon size={20} color={colors.saffronDark} />
+                </View>
+                <View style={styles.menuContent}>
+                  <Text style={[styles.menuTitle, { color: colors.deepMaroon, fontWeight: '800' }]}>
+                    Operational Area Management
+                  </Text>
+                  <Text style={styles.menuSub}>
+                    Manage regional sectors, jurisdictions & designated admins
+                  </Text>
+                </View>
+                <Text style={styles.menuArrow}>›</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Section 2: Preferences & Security */}
@@ -297,6 +326,38 @@ export const AdminMoreScreen = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Switch to Sevak View */}
+        <Text style={styles.sectionHeader}>Mode Switch</Text>
+        <View style={[styles.menuCard, shadows.card]}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              showAlert({
+                type: 'CONFIRM',
+                title: 'Switch to Sevak View',
+                message: 'Switch active view to Sevak / Sevika mobile interface?',
+                confirmText: 'Switch to Sevak',
+                cancelText: 'Cancel',
+                onConfirm: async () => {
+                  await switchRole(ROLES.SEVAK);
+                },
+              });
+            }}
+            style={styles.menuItem}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: '#FFF3E0' }]}>
+              <UserIcon size={20} color={colors.saffronDark} />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={[styles.menuTitle, { color: colors.saffronDark, fontWeight: '800' }]}>
+                Switch to Sevak View
+              </Text>
+              <Text style={styles.menuSub}>Test volunteer app & tracking flow</Text>
+            </View>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Logout Card */}
         <TouchableOpacity
           activeOpacity={0.8}
@@ -304,7 +365,7 @@ export const AdminMoreScreen = () => {
           style={[styles.logoutCard, shadows.card]}
         >
           <LogoutIcon size={20} color={colors.statusEmergency} />
-          <Text style={styles.logoutText}>Logout Super Admin Account</Text>
+          <Text style={styles.logoutText}>Logout {isSuperAdmin ? 'Super Admin' : 'Admin'} Account</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -732,6 +793,13 @@ export const AdminMoreScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Operational Area Management Modal */}
+      <AreaManagementModal
+        visible={isAreaModalOpen}
+        onClose={() => setIsAreaModalOpen(false)}
+        isSuperAdmin={isSuperAdmin}
+      />
     </View>
   );
 };
