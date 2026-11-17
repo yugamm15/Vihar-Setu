@@ -3,24 +3,66 @@ import { supabase } from '../../../core/config/supabase';
 const PROFILE_FIELDS = 'id, full_name, phone, email, avatar_url, status, city, area, created_at, updated_at, rejection_reason';
 const PAGE_SIZE = 25;
 
-const roleName = (user) => user?.user_roles?.[0]?.roles?.name || null;
+const getUserRoles = (user) => {
+  if (!user?.user_roles) return [];
+  const list = Array.isArray(user.user_roles) ? user.user_roles : [user.user_roles];
+  const roleNames = list.map((ur) => ur.roles?.name).filter(Boolean);
+  return Array.from(new Set(roleNames));
+};
 
-const mapUser = (user) => ({
-  ...user,
-  role: roleName(user),
-  user_roles: undefined,
-});
+const formatRoleDisplay = (roles) => {
+  if (!roles || roles.length === 0) return 'Unassigned';
+  if (roles.includes('ADMIN') && roles.includes('SEVAK')) return 'ADMIN & SEVAK';
+  return roles.join(' & ');
+};
+
+const mapUser = (user, explicitRoles = null) => {
+  const roles = explicitRoles && explicitRoles.length > 0 ? explicitRoles : getUserRoles(user);
+  return {
+    ...user,
+    role: formatRoleDisplay(roles),
+    roles,
+    isDualRole: roles.includes('ADMIN') && roles.includes('SEVAK'),
+    user_roles: undefined,
+  };
+};
 
 const errorMessage = (error) => error?.message || 'The database query failed.';
 
-const applyUserFilters = (query, filters = {}) => {
+const getSuperAdminUserIds = async () => {
+  try {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('user_id, roles!inner(name)')
+      .eq('roles.name', 'SUPER_ADMIN');
+    return (data || []).map((r) => r.user_id).filter(Boolean);
+  } catch (error) {
+    console.warn('[superAdminUserService] getSuperAdminUserIds error:', error?.message);
+    return [];
+  }
+};
+
+const applyUserFilters = (query, filters = {}, superAdminIds = []) => {
   const { role, status, city, area, search, registeredFrom, registeredTo } = filters;
   let nextQuery = query;
 
   if (role && role !== 'ALL') {
     nextQuery = nextQuery.eq('user_roles.roles.name', role);
+  } else {
+    // 'ALL' tab: Super Admin is NOT an ordinary user, exclude from general user directory & counts
+    if (superAdminIds.length > 0) {
+      nextQuery = nextQuery.not('id', 'in', `(${superAdminIds.join(',')})`);
+    }
   }
-  if (status && status !== 'ALL') nextQuery = nextQuery.eq('status', status);
+
+  // Default 'ALL': If a sevak is rejected, they should NOT be counted as an active user or shown in default view
+  if (status && status !== 'ALL') {
+    nextQuery = nextQuery.eq('status', status);
+  } else {
+    // Exclude REJECTED accounts from the default 'ALL' view
+    nextQuery = nextQuery.neq('status', 'REJECTED');
+  }
+
   if (city) nextQuery = nextQuery.ilike('city', `%${city}%`);
   if (area) nextQuery = nextQuery.ilike('area', `%${area}%`);
   if (registeredFrom) nextQuery = nextQuery.gte('created_at', registeredFrom);
@@ -34,22 +76,57 @@ const applyUserFilters = (query, filters = {}) => {
   return nextQuery;
 };
 
-const baseUserQuery = (options = {}) => {
+const baseUserQuery = (options = {}, filters = {}) => {
+  const hasRoleFilter = filters.role && filters.role !== 'ALL';
+  const roleRelation = hasRoleFilter
+    ? 'user_roles:user_roles!user_roles_user_id_fkey!inner(roles!inner(name))'
+    : 'user_roles:user_roles!user_roles_user_id_fkey(roles(name))';
   let query = supabase
     .from('profiles')
-    .select(`${PROFILE_FIELDS}, user_roles!inner(roles!inner(name))`, options);
+    .select(`${PROFILE_FIELDS}, ${roleRelation}`, options);
   return query;
 };
 
 const runListQuery = async (filters, page) => {
   const from = page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
-  const query = applyUserFilters(baseUserQuery({ count: 'exact' }), filters)
+
+  const superAdminIds = await getSuperAdminUserIds();
+  const query = applyUserFilters(baseUserQuery({ count: 'exact' }, filters), filters, superAdminIds)
     .order('created_at', { ascending: false })
     .range(from, to);
+
   const { data, count, error } = await query;
   if (error) throw error;
-  return { data: (data || []).map(mapUser), count: count || 0 };
+
+  const profiles = data || [];
+  const userIds = profiles.map((p) => p.id).filter(Boolean);
+
+  // Fetch all assigned roles for users on this page to ensure dual-roles (e.g. ADMIN & SEVAK) are always complete
+  let rolesMap = {};
+  if (userIds.length > 0) {
+    try {
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('user_id, roles(name)')
+        .in('user_id', userIds);
+
+      (rolesData || []).forEach((r) => {
+        if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
+        const rName = r.roles?.name;
+        if (rName && !rolesMap[r.user_id].includes(rName)) {
+          rolesMap[r.user_id].push(rName);
+        }
+      });
+    } catch (e) {
+      console.warn('[superAdminUserService] Could not fetch supplementary roles:', e?.message);
+    }
+  }
+
+  return {
+    data: profiles.map((p) => mapUser(p, rolesMap[p.id])),
+    count: count || 0,
+  };
 };
 
 const runActivityQuery = async (label, query, mapRecord = (record) => record) => {
@@ -64,6 +141,40 @@ export const superAdminUserService = {
   async approveUser(userId) {
     const { data, error } = await supabase.rpc('super_admin_approve_profile', { p_user_id: userId });
     return { data, error };
+  },
+
+  async rejectUser(userId, reason = 'Application rejected by Super Administrator') {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          status: 'REJECTED',
+          rejection_reason: reason.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId)
+        .select();
+      return { data: data?.[0] || null, error };
+    } catch (e) {
+      return { data: null, error: e };
+    }
+  },
+
+  async reinstateUser(userId) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          status: 'ACTIVE',
+          rejection_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId)
+        .select();
+      return { data: data?.[0] || null, error };
+    } catch (e) {
+      return { data: null, error: e };
+    }
   },
 
   async setUserStatus(userId, status) {
@@ -88,7 +199,7 @@ export const superAdminUserService = {
     try {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select(`${PROFILE_FIELDS}, user_roles!inner(roles!inner(name))`)
+        .select(`${PROFILE_FIELDS}, user_roles:user_roles!user_roles_user_id_fkey(roles(name))`)
         .eq('id', userId)
         .single();
       if (profileError) throw profileError;

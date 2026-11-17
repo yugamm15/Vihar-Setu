@@ -78,15 +78,40 @@ export const SuperAdminUserDetailsScreen = ({ route, navigation }) => {
             <DetailRow label={t('super_admin.user_details.email')} value={result.data.profile.email} />
             <DetailRow label={t('super_admin.user_details.role')} value={result.data.profile.role} />
             <DetailRow label={t('super_admin.user_details.status')} value={result.data.profile.status} />
+            {result.data.profile.status === 'REJECTED' && result.data.profile.rejection_reason ? (
+              <DetailRow label="Rejection reason" value={result.data.profile.rejection_reason} />
+            ) : null}
             <DetailRow label={t('super_admin.user_details.city')} value={result.data.profile.city} />
             <DetailRow label={t('super_admin.user_details.area')} value={result.data.profile.area} />
             <DetailRow label={t('super_admin.user_details.registered')} value={formatDate(result.data.profile.created_at)} />
             <DetailRow label={t('super_admin.user_details.updated')} value={formatDate(result.data.profile.updated_at)} />
           </View>
           <View style={styles.actionRow}>
-            {result.data.profile.status === 'PENDING' ? <TouchableOpacity disabled={actionLoading} style={styles.action} onPress={() => runAction(t('super_admin.user_details.actions.activate'), () => superAdminUserService.approveUser(userId))}><Text style={styles.actionText}>{t('super_admin.user_details.actions.activate')}</Text></TouchableOpacity> : null}
-            {result.data.profile.status === 'ACTIVE' ? <TouchableOpacity disabled={actionLoading} style={styles.action} onPress={() => runAction(t('super_admin.user_details.actions.disable'), () => superAdminUserService.setUserStatus(userId, 'DISABLED'))}><Text style={styles.actionText}>{t('super_admin.user_details.actions.disable')}</Text></TouchableOpacity> : null}
-            {result.data.profile.status === 'DISABLED' ? <TouchableOpacity disabled={actionLoading} style={styles.action} onPress={() => runAction(t('super_admin.user_details.actions.reactivate'), () => superAdminUserService.setUserStatus(userId, 'ACTIVE'))}><Text style={styles.actionText}>{t('super_admin.user_details.actions.reactivate')}</Text></TouchableOpacity> : null}
+            {result.data.profile.status === 'PENDING' ? (
+              <>
+                <TouchableOpacity disabled={actionLoading} style={styles.action} onPress={() => runAction(t('super_admin.user_details.actions.activate'), () => superAdminUserService.approveUser(userId))}>
+                  <Text style={styles.actionText}>{t('super_admin.user_details.actions.activate')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity disabled={actionLoading} style={[styles.action, styles.rejectAction]} onPress={() => runAction('Reject user', () => superAdminUserService.rejectUser(userId, 'Application rejected by Super Administrator'))}>
+                  <Text style={[styles.actionText, styles.rejectActionText]}>Reject</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+            {result.data.profile.status === 'ACTIVE' ? (
+              <TouchableOpacity disabled={actionLoading} style={styles.action} onPress={() => runAction(t('super_admin.user_details.actions.disable'), () => superAdminUserService.setUserStatus(userId, 'DISABLED'))}>
+                <Text style={styles.actionText}>{t('super_admin.user_details.actions.disable')}</Text>
+              </TouchableOpacity>
+            ) : null}
+            {result.data.profile.status === 'DISABLED' ? (
+              <TouchableOpacity disabled={actionLoading} style={styles.action} onPress={() => runAction(t('super_admin.user_details.actions.reactivate'), () => superAdminUserService.setUserStatus(userId, 'ACTIVE'))}>
+                <Text style={styles.actionText}>{t('super_admin.user_details.actions.reactivate')}</Text>
+              </TouchableOpacity>
+            ) : null}
+            {result.data.profile.status === 'REJECTED' ? (
+              <TouchableOpacity disabled={actionLoading} style={[styles.action, styles.reinstateAction]} onPress={() => runAction('Reinstate and activate user', () => superAdminUserService.reinstateUser(userId))}>
+                <Text style={styles.actionText}>Reinstate Account</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
           {result.errors?.length ? <Text style={styles.partial}>{t('super_admin.user_details.partial_history')}</Text> : null}
           <ActivitySection title={t('super_admin.user_details.vihars')} records={result.data.activity.vihars} emptyLabel={t('super_admin.user_details.no_history')} />
@@ -114,6 +139,9 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   action: { borderWidth: 1, borderColor: colors.deepMaroon, borderRadius: borderRadius.sm, padding: spacing.sm, flex: 1, backgroundColor: colors.cardBackground },
   actionText: { ...typography.caption, color: colors.deepMaroon, fontWeight: '800', textAlign: 'center' },
+  rejectAction: { borderColor: '#B3261E', backgroundColor: '#FFF5F5' },
+  rejectActionText: { color: '#B3261E' },
+  reinstateAction: { borderColor: colors.statusSafe, backgroundColor: '#F0FDF4' },
   partial: { ...typography.caption, color: colors.saffronDark, marginTop: spacing.md },
   section: { marginTop: spacing.lg },
   sectionTitle: { ...typography.h4, color: colors.deepMaroon, marginBottom: spacing.sm },

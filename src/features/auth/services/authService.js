@@ -35,7 +35,7 @@ export const authService = {
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, user_roles(roles(name))')
+          .select('id, user_roles:user_roles!user_roles_user_id_fkey(roles(name))')
           .eq('phone', fullPhone)
           .maybeSingle();
 
@@ -74,7 +74,7 @@ export const authService = {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, user_roles(roles(name))')
+        .select('id, user_roles:user_roles!user_roles_user_id_fkey(roles(name))')
         .eq('email', email)
         .maybeSingle();
 

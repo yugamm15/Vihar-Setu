@@ -72,7 +72,7 @@ export const superAdminReportsService = {
         totalHandovers,
         routeDeviations,
       ] = await Promise.all([
-        queryCount('Total users', dateFilter(supabase.from('profiles').select('id', { count: 'exact', head: true }), 'created_at', range)),
+        queryCount('Total users', dateFilter(supabase.from('profiles').select('id', { count: 'exact', head: true }).neq('status', 'REJECTED'), 'created_at', range)),
         queryCount('Active users', dateFilter(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE'), 'created_at', range)),
         queryCount('Disabled users', dateFilter(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'DISABLED'), 'created_at', range)),
         queryCount('Pending users', dateFilter(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'PENDING'), 'created_at', range)),
@@ -174,6 +174,9 @@ export const superAdminReportsService = {
 
       if (filters.status && filters.status !== 'ALL') {
         query = query.eq('status', filters.status);
+      } else {
+        // Exclude rejected users from default count & list
+        query = query.neq('status', 'REJECTED');
       }
       if (filters.area && filters.area.trim()) {
         query = query.ilike('area', `%${filters.area.trim()}%`);
@@ -192,20 +195,34 @@ export const superAdminReportsService = {
         queryRows('User roles', supabase.from('user_roles').select('user_id, roles!inner(name)')),
       ]);
 
-      // Role map
-      const roleMap = {};
+      // Map all roles per user to support dual-role (e.g. ADMIN & SEVAK)
+      const userRolesMap = {};
       rolesData.forEach((r) => {
-        roleMap[r.user_id] = r.roles?.name || 'SEVAK';
+        if (!userRolesMap[r.user_id]) userRolesMap[r.user_id] = [];
+        const rName = r.roles?.name;
+        if (rName && !userRolesMap[r.user_id].includes(rName)) {
+          userRolesMap[r.user_id].push(rName);
+        }
       });
 
-      const list = profiles.map((p) => ({
-        ...p,
-        role: roleMap[p.id] || 'SEVAK',
-      }));
+      const formatRole = (roles) => {
+        if (!roles || roles.length === 0) return 'Unassigned';
+        if (roles.includes('ADMIN') && roles.includes('SEVAK')) return 'ADMIN & SEVAK';
+        return roles.join(' & ');
+      };
 
-      // Filter by role if specified
+      const list = profiles.map((p) => {
+        const roles = userRolesMap[p.id] || ['SEVAK'];
+        return {
+          ...p,
+          roles,
+          role: formatRole(roles),
+        };
+      });
+
+      // Filter by role if specified (matching if user holds this role)
       const filteredList = filters.role && filters.role !== 'ALL'
-        ? list.filter((u) => u.role === filters.role)
+        ? list.filter((u) => u.roles?.includes(filters.role))
         : list;
 
       return {

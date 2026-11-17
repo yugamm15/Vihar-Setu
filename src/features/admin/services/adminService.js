@@ -186,6 +186,7 @@ export const adminService = {
 
       const pendingCount = sevaksOnly.filter((p) => p.status === 'PENDING').length;
       const activeCount = sevaksOnly.filter((p) => p.status === 'ACTIVE').length;
+      const validSevaksCount = sevaksOnly.filter((p) => p.status !== 'REJECTED').length;
 
       const allVihars = viharsRes.data || [];
       const activeVihars = allVihars.filter((v) => v.status === 'IN_PROGRESS' || v.status === 'ACTIVE');
@@ -201,7 +202,7 @@ export const adminService = {
       const emergencyCount = (emergenciesRes.data || []).length;
 
       return {
-        totalSevaks: sevaksOnly.length,
+        totalSevaks: validSevaksCount,
         pendingRequests: pendingCount,
         activeSevaks: activeCount,
         totalVihars: allVihars.length,
@@ -245,6 +246,7 @@ export const adminService = {
 
       let list = (data || []).filter((p) => {
         if (adminIds.has(p.id)) return false;
+        if (p.status === 'REJECTED') return false;
         return true;
       });
 

@@ -43,6 +43,19 @@ const countDistinctCities = async () => {
   return new Set((data || []).map((area) => area.city).filter(Boolean)).size;
 };
 
+const getSuperAdminUserIds = async () => {
+  try {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('user_id, roles!inner(name)')
+      .eq('roles.name', 'SUPER_ADMIN');
+    return (data || []).map((r) => r.user_id).filter(Boolean);
+  } catch (error) {
+    console.warn('[superAdminDashboardService] Failed to fetch super admin IDs:', error?.message);
+    return [];
+  }
+};
+
 const queryActivity = async (label, query, mapRecord) => {
   const { data, error } = await query;
   if (error) {
@@ -55,15 +68,94 @@ export const superAdminDashboardService = {
   async fetchDashboard() {
     const dashboard = emptyDashboard();
     const errors = [];
+    const superAdminIds = await getSuperAdminUserIds();
 
     const metricQueries = [
-      ['totalUsers', () => count('Total users', supabase.from('profiles').select('id', { count: 'exact', head: true }))],
-      ['totalSevaks', () => count('Total Sevaks', supabase.from('user_roles').select('user_id, roles!inner(name)', { count: 'exact', head: true }).eq('roles.name', 'SEVAK'))],
-      ['totalAdministrators', () => count('Total Administrators', supabase.from('user_roles').select('user_id, roles!inner(name)', { count: 'exact', head: true }).eq('roles.name', 'ADMIN'))],
-      ['totalSuperAdministrators', () => count('Total Super Administrators', supabase.from('user_roles').select('user_id, roles!inner(name)', { count: 'exact', head: true }).eq('roles.name', 'SUPER_ADMIN'))],
-      ['activeAccounts', () => count('Active accounts', supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE'))],
-      ['disabledAccounts', () => count('Disabled accounts', supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'DISABLED'))],
-      ['pendingRegistrations', () => count('Pending registrations', supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'PENDING'))],
+      [
+        'totalUsers',
+        () => {
+          let q = supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .neq('status', 'REJECTED');
+          if (superAdminIds.length > 0) {
+            q = q.not('id', 'in', `(${superAdminIds.join(',')})`);
+          }
+          return count('Total users', q);
+        },
+      ],
+      [
+        'totalSevaks',
+        () =>
+          count(
+            'Total Sevaks',
+            supabase
+              .from('profiles')
+              .select('id, user_roles:user_roles!user_roles_user_id_fkey!inner(roles!inner(name))', { count: 'exact', head: true })
+              .neq('status', 'REJECTED')
+              .eq('user_roles.roles.name', 'SEVAK')
+          ),
+      ],
+      [
+        'totalAdministrators',
+        () =>
+          count(
+            'Total Administrators',
+            supabase
+              .from('profiles')
+              .select('id, user_roles:user_roles!user_roles_user_id_fkey!inner(roles!inner(name))', { count: 'exact', head: true })
+              .neq('status', 'REJECTED')
+              .eq('user_roles.roles.name', 'ADMIN')
+          ),
+      ],
+      [
+        'totalSuperAdministrators',
+        () =>
+          count(
+            'Total Super Administrators',
+            supabase
+              .from('user_roles')
+              .select('user_id, roles!inner(name)', { count: 'exact', head: true })
+              .eq('roles.name', 'SUPER_ADMIN')
+          ),
+      ],
+      [
+        'activeAccounts',
+        () => {
+          let q = supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'ACTIVE');
+          if (superAdminIds.length > 0) {
+            q = q.not('id', 'in', `(${superAdminIds.join(',')})`);
+          }
+          return count('Active accounts', q);
+        },
+      ],
+      [
+        'disabledAccounts',
+        () => {
+          let q = supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'DISABLED');
+          if (superAdminIds.length > 0) {
+            q = q.not('id', 'in', `(${superAdminIds.join(',')})`);
+          }
+          return count('Disabled accounts', q);
+        },
+      ],
+      [
+        'pendingRegistrations',
+        () =>
+          count(
+            'Pending registrations',
+            supabase
+              .from('profiles')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'PENDING')
+          ),
+      ],
     ];
 
     const operationQueries = [
