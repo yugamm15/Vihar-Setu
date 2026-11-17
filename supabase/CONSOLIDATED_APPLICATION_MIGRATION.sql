@@ -594,7 +594,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    changed BOOLEAN;
+    affected INTEGER;
 BEGIN
     IF auth.uid() IS NULL THEN
         RAISE EXCEPTION 'Authentication is required.';
@@ -607,8 +607,8 @@ BEGIN
       AND user_id = auth.uid()
       AND NOT is_read;
 
-    GET DIAGNOSTICS changed = ROW_COUNT > 0;
-    RETURN changed;
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    RETURN affected > 0;
 END;
 $$;
 
