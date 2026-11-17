@@ -22,6 +22,7 @@ import {
   UserIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { subViharService } from '../services/subViharService';
+import { t } from '../../../core/localization/i18n';
 
 export const ViharHandoverModal = ({
   visible,
@@ -233,7 +234,7 @@ export const ViharHandoverModal = ({
           <View style={styles.header}>
             <View>
               <Text style={styles.badgeText}>PHASE 13 • VIHAR HANDOVER</Text>
-              <Text style={styles.title}>Transfer Vihar Responsibility</Text>
+              <Text style={styles.title}>{t('vihar.handover_title')}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.closeBtnText}>✕</Text>
@@ -254,7 +255,7 @@ export const ViharHandoverModal = ({
             {/* Input: Mobile Number or Email */}
             <View style={styles.inputWrapper}>
               <CustomTextInput
-                label="Next Sevak Mobile Number or Email *"
+                label={t('vihar.handover_contact')}
                 placeholder="e.g. 9876543210 or sevika@example.com"
                 value={contactInput}
                 onChangeText={handleContactChange}
@@ -270,7 +271,7 @@ export const ViharHandoverModal = ({
                     {isSearching ? (
                       <ActivityIndicator size="small" color={colors.warmIvory} />
                     ) : (
-                      <Text style={styles.verifyBtnText}>Verify</Text>
+                      <Text style={styles.verifyBtnText}>{t('vihar.handover_verify')}</Text>
                     )}
                   </TouchableOpacity>
                 }
@@ -317,7 +318,7 @@ export const ViharHandoverModal = ({
                     <Text style={styles.verifiedName}>{verifiedSevak.full_name}</Text>
                     <View style={styles.verifiedBadgeRow}>
                       <CheckCircleIcon size={14} color={colors.statusSafe} />
-                      <Text style={styles.verifiedBadgeText}>Verified Active Sevak</Text>
+                      <Text style={styles.verifiedBadgeText}>{t('vihar.handover_verified')}</Text>
                     </View>
                   </View>
                 </View>
@@ -380,7 +381,7 @@ export const ViharHandoverModal = ({
             {/* Quick Pick from Active Volunteer Network */}
             {!verifiedSevak && availableSevaks.length > 0 ? (
               <View style={styles.quickPickSection}>
-                <Text style={styles.sectionLabel}>Or Quick Pick from Active Surat Volunteers:</Text>
+                <Text style={styles.sectionLabel}>{t('vihar.handover_quick_pick')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sevakChipRow}>
                   {availableSevaks.slice(0, 8).map((sevak) => (
                     <TouchableOpacity
@@ -408,7 +409,7 @@ export const ViharHandoverModal = ({
 
             {/* Handover Location */}
             <CustomTextInput
-              label="Transfer / Handover Location *"
+              label={t('vihar.handover_location')}
               placeholder="e.g. Near Majura Gate Cross Road, Surat"
               value={handoverLocation}
               onChangeText={setHandoverLocation}
@@ -416,7 +417,7 @@ export const ViharHandoverModal = ({
 
             {/* Handover Notes */}
             <CustomTextInput
-              label="Handover Notes"
+              label={t('vihar.handover_notes')}
               placeholder="e.g. Accompanied 3 Sadhvijis safely, passing sacred Dandak."
               value={notes}
               onChangeText={setNotes}
@@ -429,7 +430,7 @@ export const ViharHandoverModal = ({
             {/* Action Buttons */}
             <View style={styles.btnRow}>
               <SecondaryButton
-                title="Cancel"
+                title={t('vihar.handover_cancel')}
                 onPress={onClose}
                 style={styles.cancelBtn}
               />
@@ -438,8 +439,8 @@ export const ViharHandoverModal = ({
                   isSubmitting
                     ? 'Transferring...'
                     : verifiedSevak
-                    ? `Confirm Transfer to ${verifiedSevak.full_name.split(' ')[0]}`
-                    : 'Verify Sevak to Proceed'
+                    ? `${t('vihar.handover_confirm')} ${verifiedSevak.full_name.split(' ')[0]}`
+                    : t('vihar.handover_verify')
                 }
                 onPress={handleConfirmHandover}
                 loading={isSubmitting}

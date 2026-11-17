@@ -67,7 +67,7 @@ export const OtpVerificationScreen = ({ route, navigation }) => {
   const handleVerify = async () => {
     setLocalError('');
     const cleanOtp = otp.trim();
-    if (cleanOtp.length < 6) {
+    if (!/^\d{8}$/.test(cleanOtp)) {
       setLocalError(t('auth.invalid_otp'));
       return;
     }
@@ -126,7 +126,7 @@ export const OtpVerificationScreen = ({ route, navigation }) => {
             placeholder={t('auth.otp_code_placeholder')}
             value={otp}
             onChangeText={(text) => {
-              setOtp(text);
+              setOtp(text.replace(/\D/g, '').slice(0, 8));
               if (localError) setLocalError('');
             }}
             keyboardType="number-pad"

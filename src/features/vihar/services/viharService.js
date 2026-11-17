@@ -56,23 +56,35 @@ export const viharService = {
           notes: record.notes,
         };
 
-        const { data: subData } = await supabase
+        const { data: subData, error: subError } = await supabase
           .from('vihar_subsessions')
           .insert(subViharPayload)
           .select()
           .single();
+        if (subError) throw subError;
 
         if (subData?.id) {
-          await supabase.from('vihar_participants').insert({
+          const { error: participantError } = await supabase
+            .from('vihar_participants')
+            .insert({
             vihar_id: data.id,
             sub_vihar_id: subData.id,
             user_id: userId,
             role: 'LEAD_SEVAK',
             is_current_responsible: true,
-          });
+            });
+          if (participantError) throw participantError;
         }
       } catch (subErr) {
-        console.warn('[ViharService] Sub-vihar auto-init notice:', subErr);
+        console.warn('[ViharService] Sub-vihar auto-init error:', subErr);
+        const { error: rollbackError } = await supabase
+          .from('vihars')
+          .delete()
+          .eq('id', data.id);
+        if (rollbackError) {
+          console.warn('[ViharService] Vihar rollback error:', rollbackError);
+        }
+        return { data: null, error: subErr };
       }
 
       return { data, error: null };
@@ -153,13 +165,39 @@ export const viharService = {
    */
   async completeVihar(viharId, completionData = {}) {
     try {
+      if (!viharId) throw new Error('Vihar ID is required to complete the Vihar');
+      const now = new Date().toISOString();
+
+      // Close dependent safety state before completing the parent journey.
+      const { error: holdError } = await supabase
+        .from('vihar_holds')
+        .update({
+          status: 'COMPLETED',
+          hold_end: now,
+        })
+        .eq('vihar_id', viharId)
+        .eq('status', 'ACTIVE');
+      if (holdError) throw holdError;
+
+      const { error: subViharError } = await supabase
+        .from('vihar_subsessions')
+        .update({
+          status: 'COMPLETED',
+          completed_at: now,
+          updated_at: now,
+        })
+        .eq('vihar_id', viharId)
+        .eq('status', 'ACTIVE');
+      if (subViharError) throw subViharError;
+
       const { data, error } = await supabase
         .from('vihars')
         .update({
           status: 'COMPLETED',
-          completed_at: new Date().toISOString(),
+          completed_at: now,
+          safety_status: 'SAFE',
           total_distance_km: completionData.total_distance_km || 4.8,
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         })
         .eq('id', viharId)
         .select()

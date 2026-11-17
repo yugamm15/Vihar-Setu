@@ -19,6 +19,7 @@ import {
   AlertTriangleIcon,
 } from '../../../shared/components/CustomSvgIcons';
 import { HOLD_REASONS, holdService } from '../services/holdService';
+import { t } from '../../../core/localization/i18n';
 
 export const ViharHoldModal = ({
   visible,
@@ -86,7 +87,7 @@ export const ViharHoldModal = ({
               <ClockIcon size={24} color={colors.statusWarning} />
             </View>
             <View style={styles.headerTextWrap}>
-              <Text style={styles.title}>Initiate Vihar Hold</Text>
+              <Text style={styles.title}>{t('vihar.hold_title')}</Text>
               <Text style={styles.subtitle}>
                 अल्प विश्राम / થોભવું — Pauses false safety alerts
               </Text>
@@ -101,7 +102,7 @@ export const ViharHoldModal = ({
             <View style={styles.infoBanner}>
               <ShieldIcon size={16} color={colors.gold} />
               <Text style={styles.infoBannerText}>
-                Safety Notice: While on hold, automatic stationary alarms are paused. Administrators will be informed of this planned stop.
+                {t('vihar.hold_notice')}
               </Text>
             </View>
 
@@ -114,7 +115,7 @@ export const ViharHoldModal = ({
             )}
 
             {/* Reason Selection */}
-            <Text style={styles.sectionLabel}>Select Reason for Pause</Text>
+            <Text style={styles.sectionLabel}>{t('vihar.hold_reason')}</Text>
             <View style={styles.reasonsList}>
               {HOLD_REASONS.map((r) => {
                 const isSelected = selectedReason === r.id;
@@ -143,7 +144,7 @@ export const ViharHoldModal = ({
                           isSelected && styles.reasonLabelSelected,
                         ]}
                       >
-                        {r.label}
+                        {t(`vihar.hold_reason_${r.id}`)}
                       </Text>
                       <Text style={styles.reasonDesc}>{r.description}</Text>
                     </View>
@@ -153,7 +154,7 @@ export const ViharHoldModal = ({
             </View>
 
             {/* Current Location / Landmark */}
-            <Text style={styles.sectionLabel}>Stop Location / Landmark</Text>
+            <Text style={styles.sectionLabel}>{t('vihar.hold_location')}</Text>
             <TextInput
               style={styles.input}
               value={locationName}
@@ -163,7 +164,7 @@ export const ViharHoldModal = ({
             />
 
             {/* Notes */}
-            <Text style={styles.sectionLabel}>Additional Notes (Optional)</Text>
+            <Text style={styles.sectionLabel}>{t('vihar.hold_notes')}</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={notes}
@@ -182,7 +183,7 @@ export const ViharHoldModal = ({
               onPress={onClose}
               disabled={isSubmitting}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('vihar.hold_cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -195,7 +196,7 @@ export const ViharHoldModal = ({
               ) : (
                 <>
                   <CheckCircleIcon size={18} color={colors.textLight} />
-                  <Text style={styles.confirmButtonText}>Start Hold Now</Text>
+                  <Text style={styles.confirmButtonText}>{t('vihar.hold_confirm')}</Text>
                 </>
               )}
             </TouchableOpacity>

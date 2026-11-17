@@ -156,7 +156,7 @@ export const subViharService = {
 
       // 1. Mark Current Sub-Vihar as TRANSFERRED / COMPLETED
       if (currentSubViharId) {
-        await supabase
+        const { error: currentSubViharError } = await supabase
           .from('vihar_subsessions')
           .update({
             status: 'TRANSFERRED',
@@ -164,15 +164,17 @@ export const subViharService = {
             updated_at: new Date().toISOString(),
           })
           .eq('id', currentSubViharId);
+        if (currentSubViharError) throw currentSubViharError;
 
         // Update participant left_at
-        await supabase
+        const { error: participantUpdateError } = await supabase
           .from('vihar_participants')
           .update({
             is_current_responsible: false,
             left_at: new Date().toISOString(),
           })
           .eq('sub_vihar_id', currentSubViharId);
+        if (participantUpdateError) throw participantUpdateError;
       }
 
       // 2. Create Next Sub-Vihar (e.g. Sub-Vihar #2)
@@ -197,14 +199,17 @@ export const subViharService = {
 
       // 3. Register Next Participant
       if (nextSevakUserId && newSubVihar?.id) {
-        await supabase.from('vihar_participants').insert({
+        const { error: participantInsertError } = await supabase
+          .from('vihar_participants')
+          .insert({
           vihar_id: viharId,
           sub_vihar_id: newSubVihar.id,
           user_id: nextSevakUserId,
           role: 'LEAD_SEVAK',
           is_current_responsible: true,
           joined_at: new Date().toISOString(),
-        });
+          });
+        if (participantInsertError) throw participantInsertError;
       }
 
       // 4. Log Handover Record in public.vihar_handover
@@ -230,7 +235,7 @@ export const subViharService = {
       if (handoverErr) throw handoverErr;
 
       // 5. Log Event in route_events for live tracking timeline
-      await supabase.from('route_events').insert({
+      const { error: eventError } = await supabase.from('route_events').insert({
         vihar_id: viharId,
         event_type: 'ROUTE_RECOVERED',
         severity: 'INFO',
@@ -238,6 +243,7 @@ export const subViharService = {
         latitude: handoverLat,
         longitude: handoverLng,
       });
+      if (eventError) throw eventError;
 
       return {
         success: true,

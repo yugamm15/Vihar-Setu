@@ -116,6 +116,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
     triggerEmergency,
     disarmEmergency,
     isLoading,
+    error: viharError,
   } = useViharStore();
 
   // Dialog States
@@ -470,6 +471,15 @@ export const SevakViharScreen = ({ navigation, route }) => {
           confirmText: 'Jai Jinendra',
           confirmVariant: 'saffron',
         });
+      } else {
+        const startError = useViharStore.getState().error;
+        showAlert({
+          type: 'ERROR',
+          title: t('vihar.start_failed_title'),
+          message: startError || t('vihar.start_failed_message'),
+          confirmText: t('common.confirm'),
+          confirmVariant: 'maroon',
+        });
       }
     } else {
       const success = await scheduleFutureVihar(user.id, payload);
@@ -483,7 +493,30 @@ export const SevakViharScreen = ({ navigation, route }) => {
           confirmText: 'Done',
           confirmVariant: 'saffron',
         });
+      } else {
+        const scheduleError = useViharStore.getState().error;
+        showAlert({
+          type: 'ERROR',
+          title: t('vihar.start_failed_title'),
+          message: scheduleError || t('vihar.start_failed_message'),
+          confirmText: t('common.confirm'),
+          confirmVariant: 'maroon',
+        });
       }
+    }
+  };
+
+  const handleStartScheduledVihar = async (viharId) => {
+    const success = await startScheduled(viharId);
+    if (!success) {
+      const startError = useViharStore.getState().error;
+      showAlert({
+        type: 'ERROR',
+        title: t('vihar.start_failed_title'),
+        message: startError || t('vihar.start_failed_message'),
+        confirmText: t('common.confirm'),
+        confirmVariant: 'maroon',
+      });
     }
   };
 
@@ -542,10 +575,11 @@ export const SevakViharScreen = ({ navigation, route }) => {
         total_distance_km: activeVihar.total_distance_km || 4.8,
       });
       if (!completed) {
+        const completionError = useViharStore.getState().error;
         showAlert({
           type: 'ERROR',
-          title: 'Unable to Complete Vihar',
-          message: 'The Vihar could not be saved. Please check your connection and try again.',
+          title: t('vihar.completion_failed_title'),
+          message: completionError || viharError || t('vihar.completion_failed_message'),
           confirmText: 'OK',
           confirmVariant: 'maroon',
         });
@@ -554,8 +588,8 @@ export const SevakViharScreen = ({ navigation, route }) => {
 
       showAlert({
         type: 'SUCCESS',
-        title: 'Vihar Concluded',
-        message: 'Vihar Seva completed safely. Seva records have been preserved.',
+        title: t('vihar.completion_success_title'),
+        message: t('vihar.completion_success_message'),
         confirmText: 'Jai Jinendra',
         confirmVariant: 'saffron',
       });
@@ -661,7 +695,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
                   onPress={handleResumeVihar}
                 >
                   <CheckCircleIcon size={18} color={colors.white} />
-                  <Text style={styles.resumeHoldBtnText}>Resume Vihar Seva (विहार पुनः प्रारंभ)</Text>
+                  <Text style={styles.resumeHoldBtnText}>{t('vihar.resume_action')}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -848,7 +882,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
               >
                 <UsersGroupIcon size={18} color={colors.saffronDark} />
                 <Text style={styles.handoverActionBtnText}>
-                  Handover Vihar (Transfer Duty)
+                  {t('vihar.handover_action')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -862,7 +896,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
               >
                 <PauseIcon size={18} color={colors.gold} />
                 <Text style={styles.initiateHoldBtnText}>
-                  Temporary Hold / Rest (अल्प विश्राम)
+                  {t('vihar.hold_action')}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -874,7 +908,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
               style={[styles.endViharBtn, shadows.subtle]}
             >
               <View style={styles.redDot} />
-              <Text style={styles.endViharText}>END VIHAR SEVA</Text>
+              <Text style={styles.endViharText}>{t('vihar.end_action')}</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -1024,7 +1058,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
                     <PrimaryButton
                       title="Start Vihar Early"
                       variant="maroon"
-                      onPress={() => startScheduled(vihar.id)}
+                      onPress={() => handleStartScheduledVihar(vihar.id)}
                       style={styles.startEarlyBtn}
                     />
                   </View>
@@ -1422,10 +1456,10 @@ export const SevakViharScreen = ({ navigation, route }) => {
       {/* SOS Confirmation Dialog */}
       <ConfirmationDialog
         visible={sosModalVisible}
-        title="EMERGENCY SOS ALERT"
-        message="Are you sure you want to broadcast an immediate emergency SOS? All regional safety administrators will be alerted with your live location."
-        confirmText="TRIGGER SOS NOW"
-        cancelText="Cancel"
+        title={t('vihar.sos_title')}
+        message={t('vihar.sos_message')}
+        confirmText={t('vihar.sos_confirm')}
+        cancelText={t('common.cancel')}
         isDestructive
         onConfirm={handleTriggerSOS}
         onCancel={() => setSosModalVisible(false)}
@@ -1434,10 +1468,10 @@ export const SevakViharScreen = ({ navigation, route }) => {
       {/* End Vihar Confirmation Dialog */}
       <ConfirmationDialog
         visible={endModalVisible}
-        title="Conclude Vihar Seva"
-        message="Have you arrived safely at the destination Upashray and wish to end this Vihar session?"
-        confirmText="Yes, Complete Vihar"
-        cancelText="Keep Tracking"
+        title={t('vihar.end_title')}
+        message={t('vihar.end_message')}
+        confirmText={t('vihar.end_confirm')}
+        cancelText={t('vihar.end_cancel')}
         onConfirm={handleEndVihar}
         onCancel={() => setEndModalVisible(false)}
       />

@@ -148,20 +148,28 @@ export const authService = {
    */
   async verifyOtp(identifier, token) {
     const raw = String(identifier || '').trim();
+    const cleanToken = String(token || '').trim();
     const isPhone = this.isPhoneNumber(raw);
     const fullPhone = isPhone ? this.formatPhone(raw) : '';
     const email = !isPhone ? raw.toLowerCase() : '';
+
+    if (!/^\d{8}$/.test(cleanToken)) {
+      return {
+        data: null,
+        error: { message: 'OTP must be exactly 8 digits.' },
+      };
+    }
 
     try {
       const verifyPayload = isPhone
         ? {
             phone: fullPhone,
-            token: token.trim(),
+            token: cleanToken,
             type: 'sms',
           }
         : {
             email: email,
-            token: token.trim(),
+            token: cleanToken,
             type: 'email',
           };
 

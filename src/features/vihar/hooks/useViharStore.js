@@ -132,7 +132,14 @@ export const useViharStore = create((set, get) => ({
    */
   cancelScheduled: async (viharId) => {
     set({ isLoading: true });
-    await viharService.cancelScheduledVihar(viharId);
+    const result = await viharService.cancelScheduledVihar(viharId);
+    if (!result.success) {
+      set({
+        isLoading: false,
+        error: result.error?.message || 'Failed to cancel scheduled Vihar.',
+      });
+      return false;
+    }
     const filtered = get().scheduledVihars.filter((v) => v.id !== viharId);
     set({
       scheduledVihars: filtered,
@@ -183,7 +190,11 @@ export const useViharStore = create((set, get) => ({
    */
   disarmEmergency: async (emergencyId, viharId, reason) => {
     set({ isLoading: true });
-    await viharService.cancelEmergencyBySevak(emergencyId, viharId, reason);
+    const { error } = await viharService.cancelEmergencyBySevak(emergencyId, viharId, reason);
+    if (error) {
+      set({ isLoading: false, error: error.message || 'Failed to disarm emergency.' });
+      return false;
+    }
 
     const currentActive = get().activeVihar;
     if (currentActive && currentActive.id === viharId) {
@@ -195,6 +206,7 @@ export const useViharStore = create((set, get) => ({
     set({
       activeEmergency: null,
       isLoading: false,
+      error: null,
     });
     return true;
   },

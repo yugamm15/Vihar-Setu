@@ -57,16 +57,17 @@ class HoldService {
         holdRecord = data;
 
         // Update vihar safety_status to HOLD
-        await supabase
+        const { error: statusError } = await supabase
           .from('vihars')
           .update({
             safety_status: 'HOLD',
             updated_at: now,
           })
           .eq('id', viharId);
+        if (statusError) throw statusError;
 
         // Record in route_events
-        await supabase.from('route_events').insert({
+        const { error: eventError } = await supabase.from('route_events').insert({
           vihar_id: viharId,
           event_type: 'HOLD_STARTED',
           severity: 'INFO',
@@ -75,6 +76,7 @@ class HoldService {
           longitude,
           metadata: { hold_id: data.id, reason, notes },
         });
+        if (eventError) throw eventError;
       } else {
         // Enqueue offline
         holdRecord = { ...holdPayload, id: `offline_hold_${Date.now()}` };
@@ -105,26 +107,32 @@ class HoldService {
 
       if (offlineSyncService.isOnline) {
         if (holdId && !holdId.startsWith('offline_')) {
-          await supabase.from('vihar_holds').update(updatePayload).eq('id', holdId);
+          const { error: holdError } = await supabase
+            .from('vihar_holds')
+            .update(updatePayload)
+            .eq('id', holdId);
+          if (holdError) throw holdError;
         }
 
         // Restore Vihar safety status to SAFE
-        await supabase
+        const { error: statusError } = await supabase
           .from('vihars')
           .update({
             safety_status: 'SAFE',
             updated_at: now.toISOString(),
           })
           .eq('id', viharId);
+        if (statusError) throw statusError;
 
         // Log resume event
-        await supabase.from('route_events').insert({
+        const { error: eventError } = await supabase.from('route_events').insert({
           vihar_id: viharId,
           event_type: 'HOLD_ENDED',
           severity: 'INFO',
           message: `Vihar resumed from Hold (Duration: ${durationMinutes} mins)`,
           metadata: { hold_id: holdId, duration_minutes: durationMinutes },
         });
+        if (eventError) throw eventError;
       } else {
         await offlineSyncService.enqueue('HOLD_EVENT', {
           action: 'UPDATE',
