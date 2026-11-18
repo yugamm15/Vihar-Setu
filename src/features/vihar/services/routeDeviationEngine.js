@@ -1,212 +1,220 @@
-import { supabase } from '../../../core/config/supabase';
-import { offlineSyncService } from './offlineSyncService';
+import { distanceToPolyline, decodePolyline } from '../../../core/geo/geoUtils';
 import { voiceAlertService } from '../../../core/services/voiceAlertService';
+import { supabase } from '../../../core/config/supabase';
 
-/**
- * Route Deviation States per PART B Master Bible (Section B12)
- */
-export const DEVIATION_STATUS = {
-  ON_TRACK: 'ON_TRACK',
-  TIER_1_LOCAL_WARNING: 'TIER_1_LOCAL_WARNING', // > 100m sustained
-  TIER_2_ADMIN_ALARM: 'TIER_2_ADMIN_ALARM',     // > 500m
-  TIER_3_CRITICAL_EMERGENCY: 'TIER_3_CRITICAL_EMERGENCY', // > 1000m (1 km)
-  HOLD_BYPASS: 'HOLD_BYPASS', // Hold is active, deviation check paused
-};
-
-/**
- * Haversine formula to compute great-circle distance between two points in meters
- */
-export const calculateDistanceMeters = (lat1, lon1, lat2, lon2) => {
-  const R = 6371000; // Earth radius in meters
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-/**
- * Calculate cross-track distance (perpendicular distance in meters)
- * from point P to line segment AB.
- */
-export const calculatePerpendicularDistance = (pLat, pLon, aLat, aLon, bLat, bLon) => {
-  const lineDist = calculateDistanceMeters(aLat, aLon, bLat, bLon);
-  if (lineDist === 0) return calculateDistanceMeters(pLat, pLon, aLat, aLon);
-
-  // Vector AB and AP projected in approximate planar coordinates
-  const x = (bLon - aLon) * Math.cos(((aLat + bLat) / 2) * (Math.PI / 180));
-  const y = bLat - aLat;
-  const px = (pLon - aLon) * Math.cos(((aLat + pLat) / 2) * (Math.PI / 180));
-  const py = pLat - aLat;
-
-  const t = Math.max(0, Math.min(1, (px * x + py * y) / (x * x + y * y)));
-  const projLat = aLat + t * (bLat - aLat);
-  const projLon = aLon + t * (bLon - aLon);
-
-  return calculateDistanceMeters(pLat, pLon, projLat, projLon);
+export const DEVIATION_TIERS = {
+  ON_TRACK: 0,
+  TIER_1: 1, // > 100m
+  TIER_2: 2, // > 500m
+  TIER_3: 3, // > 1000m (1 km)
 };
 
 class RouteDeviationEngine {
   constructor() {
-    this.status = DEVIATION_STATUS.ON_TRACK;
+    this.currentTier = DEVIATION_TIERS.ON_TRACK;
     this.currentDeviationMeters = 0;
+    this.maxDeviationMeters = 0;
     this.deviationStartTime = null;
-    this.tier2Escalated = false;
-    this.tier3Escalated = false;
+    this.sustainedTier = DEVIATION_TIERS.ON_TRACK;
+    this.tierCandidateTime = null;
+    this.currentRouteEventId = null;
+
+    // Thresholds (configurable via system_settings)
+    this.tier1Meters = 100;
+    this.tier2Meters = 500;
+    this.tier3Meters = 1000;
+    this.sustainSeconds = 15;
+    this.returnMarginMeters = 60;
+    this.accuracyLimitMeters = 50;
+
+    this.polylinePoints = []; // GeoJSON [lng, lat]
     this.listeners = new Set();
   }
 
   /**
-   * Evaluate live coordinate against planned route/waypoints
-   * @param {object} coords - { latitude, longitude }
-   * @param {object} vihar - Vihar object with source_lat, source_lng, dest_lat, dest_lng
-   * @param {boolean} isHoldActive - whether a temporary hold is in effect
+   * Set active route geometry for distance checking
    */
-  evaluateLocation(coords, vihar, isHoldActive = false) {
-    if (!coords || !vihar) return this.status;
+  setRoute(encodedPolyline) {
+    if (!encodedPolyline) return;
+    this.polylinePoints = decodePolyline(encodedPolyline);
+  }
 
-    // If a hold is active (e.g. resting at Upashray), bypass deviation alerts
-    if (isHoldActive) {
-      this.status = DEVIATION_STATUS.HOLD_BYPASS;
-      this.currentDeviationMeters = 0;
-      this.deviationStartTime = null;
-      this.tier2Escalated = false;
-      this.tier3Escalated = false;
-      this._notifyListeners();
-      return this.status;
+  /**
+   * Reset deviation engine state
+   */
+  reset() {
+    this.currentTier = DEVIATION_TIERS.ON_TRACK;
+    this.currentDeviationMeters = 0;
+    this.maxDeviationMeters = 0;
+    this.deviationStartTime = null;
+    this.sustainedTier = DEVIATION_TIERS.ON_TRACK;
+    this.tierCandidateTime = null;
+    this.currentRouteEventId = null;
+    this._notifyListeners();
+  }
+
+  /**
+   * Evaluate a live GPS coordinate against the planned polyline
+   * @param {object} coords - { latitude, longitude, accuracy }
+   * @param {string} viharId
+   * @param {boolean} isHoldActive
+   */
+  async evaluateLocation(coords, viharId, isHoldActive = false) {
+    if (!coords || this.polylinePoints.length < 2) return this.currentTier;
+
+    // Accuracy guard: Ignore noisy GPS fixes worse than 50m
+    if (coords.accuracy && coords.accuracy > this.accuracyLimitMeters) {
+      return this.currentTier;
     }
 
-    const oLat = vihar.source_lat || 21.1959;
-    const oLon = vihar.source_lng || 72.7933;
-    const dLat = vihar.dest_lat || 21.1442;
-    const dLon = vihar.dest_lng || 72.7758;
+    // Bypass check if an authorized Hold is active
+    if (isHoldActive) {
+      return this.currentTier;
+    }
 
-    // Calculate cross-track deviation distance
-    const distMeters = calculatePerpendicularDistance(
-      coords.latitude,
-      coords.longitude,
-      oLat,
-      oLon,
-      dLat,
-      dLon
+    // Compute shortest perpendicular distance to route polyline
+    const distMeters = distanceToPolyline(
+      { latitude: coords.latitude, longitude: coords.longitude },
+      this.polylinePoints
     );
 
-    this.currentDeviationMeters = Math.round(distMeters);
+    this.currentDeviationMeters = distMeters;
+    if (distMeters > this.maxDeviationMeters) {
+      this.maxDeviationMeters = distMeters;
+    }
+
     const now = Date.now();
 
-    // Hysteresis Return Margin (returns within 60m of planned route clears alerts)
-    if (distMeters <= 60) {
-      if (this.status !== DEVIATION_STATUS.ON_TRACK && this.deviationStartTime) {
-        this._recordReturnToRoute(vihar.id, coords);
+    // 1. Check Return Hysteresis (Distance dropped below 60m)
+    if (distMeters < this.returnMarginMeters && this.currentTier > DEVIATION_TIERS.ON_TRACK) {
+      await this._handleReturnToRoute(viharId, coords);
+      return this.currentTier;
+    }
+
+    // 2. Determine Candidate Tier
+    let candidateTier = DEVIATION_TIERS.ON_TRACK;
+    if (distMeters >= this.tier3Meters) {
+      candidateTier = DEVIATION_TIERS.TIER_3;
+    } else if (distMeters >= this.tier2Meters) {
+      candidateTier = DEVIATION_TIERS.TIER_2;
+    } else if (distMeters >= this.tier1Meters) {
+      candidateTier = DEVIATION_TIERS.TIER_1;
+    }
+
+    // 3. 15-Second Sustain Guard
+    if (candidateTier > this.currentTier) {
+      if (!this.tierCandidateTime || candidateTier !== this.sustainedTier) {
+        this.sustainedTier = candidateTier;
+        this.tierCandidateTime = now;
+      } else {
+        const sustainedDurationSec = (now - this.tierCandidateTime) / 1000;
+        if (sustainedDurationSec >= this.sustainSeconds) {
+          // Tier confirmed after 15 seconds continuous sustain!
+          await this._triggerTierEscalation(candidateTier, viharId, coords);
+        }
       }
-      this.status = DEVIATION_STATUS.ON_TRACK;
-      this.deviationStartTime = null;
-      this.tier2Escalated = false;
-      this.tier3Escalated = false;
-    } else if (distMeters > 1000) {
-      // TIER 3: CRITICAL EMERGENCY (> 1000m / 1 km)
-      this.status = DEVIATION_STATUS.TIER_3_CRITICAL_EMERGENCY;
-      if (!this.tier3Escalated) {
-        this.tier3Escalated = true;
-        this._triggerTier3CriticalEmergency(vihar.id, coords, distMeters);
-      }
-    } else if (distMeters > 500) {
-      // TIER 2: LOUD ALARM & ADMIN PUSH ALERT (> 500m)
-      this.status = DEVIATION_STATUS.TIER_2_ADMIN_ALARM;
-      if (!this.tier2Escalated) {
-        this.tier2Escalated = true;
-        this._triggerTier2AdminEscalation(vihar.id, coords, distMeters);
-      }
-    } else if (distMeters > 100) {
-      // TIER 1: GENTLE LOCAL ALERT (> 100m sustained)
-      if (!this.deviationStartTime) {
-        this.deviationStartTime = now;
-      }
-      this.status = DEVIATION_STATUS.TIER_1_LOCAL_WARNING;
-      voiceAlertService.speakDeviationAlert(distMeters);
+    } else {
+      this.tierCandidateTime = null;
     }
 
     this._notifyListeners();
-    return this.status;
+    return this.currentTier;
   }
 
   /**
-   * Log Return to Route Event
+   * Handle escalation to Tier 1, 2, or 3
    */
-  async _recordReturnToRoute(viharId, coords) {
-    try {
-      await offlineSyncService.queueRouteEvent({
-        vihar_id: viharId,
-        type: 'RETURN_TO_ROUTE',
-        tier: 0,
-        distance_meters: this.currentDeviationMeters,
-        coords,
-      });
-    } catch (e) {
-      console.warn('[RouteDeviationEngine] Error logging return to route:', e);
+  async _triggerTierEscalation(tier, viharId, coords) {
+    this.currentTier = tier;
+    this.tierCandidateTime = null;
+
+    if (!this.deviationStartTime) {
+      this.deviationStartTime = new Date();
     }
+
+    if (tier === DEVIATION_TIERS.TIER_1) {
+      // TIER 1: Gentle Alert (Voice + Vibration + Event)
+      voiceAlertService.announce('ROUTE_DEVIATION_TIER1');
+      try {
+        const { data } = await supabase.rpc('record_route_event', {
+          p_vihar_id: viharId,
+          p_event_type: 'DEVIATION_START',
+          p_severity: 'WARNING',
+          p_message: `Route deviation Level 1: ${this.currentDeviationMeters}m from planned path.`,
+          p_latitude: coords.latitude,
+          p_longitude: coords.longitude,
+          p_metadata: { distance_m: this.currentDeviationMeters, tier: 1 },
+        });
+        this.currentRouteEventId = data;
+      } catch (e) {
+        console.warn('[DeviationEngine] Record Tier 1 event failed:', e);
+      }
+    } else if (tier === DEVIATION_TIERS.TIER_2) {
+      // TIER 2: Loud Alarm + Strong Voice + Admin Alert
+      voiceAlertService.announce('ROUTE_DEVIATION_TIER2');
+      try {
+        await supabase.rpc('record_route_event', {
+          p_vihar_id: viharId,
+          p_event_type: 'DEVIATION_START',
+          p_severity: 'WARNING',
+          p_message: `Route deviation Level 2 (High): ${this.currentDeviationMeters}m from planned path.`,
+          p_latitude: coords.latitude,
+          p_longitude: coords.longitude,
+          p_metadata: { distance_m: this.currentDeviationMeters, tier: 2 },
+        });
+      } catch (e) {
+        console.warn('[DeviationEngine] Record Tier 2 event failed:', e);
+      }
+    } else if (tier === DEVIATION_TIERS.TIER_3) {
+      // TIER 3: Critical Emergency (1 km deviation)
+      voiceAlertService.announce('EMERGENCY_TRIGGERED');
+      try {
+        await supabase.rpc('create_emergency', {
+          p_vihar_id: viharId,
+          p_trigger_type: 'ROUTE_DEVIATION_1KM',
+          p_latitude: coords.latitude,
+          p_longitude: coords.longitude,
+          p_battery_percentage: 100,
+        });
+      } catch (e) {
+        console.warn('[DeviationEngine] Create Tier 3 emergency failed:', e);
+      }
+    }
+
+    this._notifyListeners();
   }
 
   /**
-   * Trigger Tier 2 Admin Escalation (> 500m)
+   * Handle safe return to route (< 60m)
    */
-  async _triggerTier2AdminEscalation(viharId, coords, deviationMeters) {
-    try {
-      voiceAlertService.speakDeviationAlert(deviationMeters);
+  async _handleReturnToRoute(viharId, coords) {
+    const prevTier = this.currentTier;
+    this.currentTier = DEVIATION_TIERS.ON_TRACK;
+    this.tierCandidateTime = null;
 
-      await offlineSyncService.queueRouteEvent({
-        vihar_id: viharId,
-        type: 'TIER_2_ADMIN_ALERT',
-        tier: 2,
-        distance_meters: Math.round(deviationMeters),
-        coords,
-      });
-
-      await supabase.from('notifications').insert({
-        user_id: null,
-        type: 'DEVIATION_TIER_2',
-        title: 'Route Deviation Alert (>500m)',
-        body: `Sevak unit has deviated by ~${Math.round(deviationMeters)}m on Vihar route.`,
-        data: { vihar_id: viharId, coords, deviation_meters: deviationMeters },
-        priority: 'HIGH',
-      });
-    } catch (e) {
-      console.warn('[RouteDeviationEngine] Error in Tier 2 escalation:', e);
+    if (this.deviationStartTime && prevTier < DEVIATION_TIERS.TIER_3) {
+      const durationSeconds = Math.round((Date.now() - this.deviationStartTime.getTime()) / 1000);
+      try {
+        await supabase.rpc('record_route_event', {
+          p_vihar_id: viharId,
+          p_event_type: 'DEVIATION_END',
+          p_severity: 'INFO',
+          p_message: `Returned to route safely. Deviation resolved (max ${this.maxDeviationMeters}m, duration ${durationSeconds}s).`,
+          p_latitude: coords.latitude,
+          p_longitude: coords.longitude,
+          p_metadata: {
+            max_distance_m: this.maxDeviationMeters,
+            duration_seconds: durationSeconds,
+          },
+        });
+      } catch (e) {
+        console.warn('[DeviationEngine] Close deviation event failed:', e);
+      }
     }
-  }
 
-  /**
-   * Trigger Tier 3 Critical Emergency (> 1000m)
-   */
-  async _triggerTier3CriticalEmergency(viharId, coords, deviationMeters) {
-    try {
-      voiceAlertService.speakEmergencyTriggered();
-
-      await offlineSyncService.queueRouteEvent({
-        vihar_id: viharId,
-        type: 'TIER_3_CRITICAL_EMERGENCY',
-        tier: 3,
-        distance_meters: Math.round(deviationMeters),
-        coords,
-      });
-
-      // Insert Emergency Record
-      await supabase.from('emergencies').insert({
-        vihar_id: viharId,
-        trigger_type: 'TIER_3_DEVIATION',
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        status: 'ESCALATING',
-        resolution_notes: `Automatic Tier 3 Emergency triggered: Departure of ${Math.round(deviationMeters)}m from planned route.`,
-      });
-    } catch (e) {
-      console.warn('[RouteDeviationEngine] Error in Tier 3 emergency:', e);
-    }
+    this.deviationStartTime = null;
+    this.maxDeviationMeters = 0;
+    this._notifyListeners();
   }
 
   subscribe(listener) {
@@ -214,37 +222,14 @@ class RouteDeviationEngine {
     return () => this.listeners.delete(listener);
   }
 
-  reset() {
-    this.status = DEVIATION_STATUS.ON_TRACK;
-    this.currentDeviationMeters = 0;
-    this.deviationStartTime = null;
-    this.tier2Escalated = false;
-    this.tier3Escalated = false;
-    this._notifyListeners();
-  }
-
   _notifyListeners() {
-    this.listeners.forEach((fn) => {
-      try {
-        fn({
-          status: this.status,
-          currentDeviationMeters: this.currentDeviationMeters,
-          tier2Escalated: this.tier2Escalated,
-          tier3Escalated: this.tier3Escalated,
-        });
-      } catch (e) {
-        console.error('[RouteDeviationEngine] Listener error:', e);
-      }
-    });
-  }
-
-  getStatus() {
-    return {
-      status: this.status,
-      currentDeviationMeters: this.currentDeviationMeters,
-      tier2Escalated: this.tier2Escalated,
-      tier3Escalated: this.tier3Escalated,
+    const snapshot = {
+      tier: this.currentTier,
+      distanceMeters: this.currentDeviationMeters,
+      maxDistanceMeters: this.maxDeviationMeters,
+      sustainedTier: this.sustainedTier,
     };
+    this.listeners.forEach((fn) => fn(snapshot));
   }
 }
 

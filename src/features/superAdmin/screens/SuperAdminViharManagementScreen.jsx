@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   selected: { backgroundColor: colors.deepMaroon, borderColor: colors.deepMaroon },
   chipText: { ...typography.caption, color: colors.textPrimary },
-  selectedChipText: { color: colors.warmIvory, fontWeight: '800' },
+  selectedChipText: { color: '#FFFFFF', fontWeight: '800' },
   card: { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm },
   recent: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm },
   recentTitle: { ...typography.bodySmall, color: colors.deepMaroon, fontWeight: '800', marginBottom: spacing.xs },

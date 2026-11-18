@@ -1,12 +1,16 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SevakHomeScreen } from '../features/sevak/screens/SevakHomeScreen';
 import { SevakViharScreen } from '../features/sevak/screens/SevakViharScreen';
 import { SevakHistoryScreen } from '../features/sevak/screens/SevakHistoryScreen';
 import { SevakProfileScreen } from '../features/sevak/screens/SevakProfileScreen';
 import { SevakMoreScreen } from '../features/sevak/screens/SevakMoreScreen';
+import { ChooseRouteScreen } from '../features/vihar/screens/ChooseRouteScreen';
+import { ViharDetailsScreen } from '../features/vihar/screens/ViharDetailsScreen';
+import { ActiveViharScreen } from '../features/vihar/screens/ActiveViharScreen';
 import {
   HomeIcon,
   NavigationIcon,
@@ -19,8 +23,9 @@ import { typography } from '../core/theme/typography';
 import { useAuthStore } from '../features/auth/hooks/useAuthStore';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
-export const SevakNavigator = () => {
+const SevakTabNavigator = () => {
   const insets = useSafeAreaInsets();
   const language = useAuthStore((state) => state.language);
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 0);
@@ -65,17 +70,15 @@ export const SevakNavigator = () => {
         name="ViharTab"
         component={SevakViharScreen}
         options={{
-          tabBarLabel: language === 'gu' ? 'વિહાર' : language === 'hi' ? 'विहार' : 'Vihar',
-          tabBarIcon: ({ color }) => (
-            <NavigationIcon size={22} color={color} />
-          ),
+          tabBarLabel: language === 'gu' ? 'વિહાર' : language === 'hi' ? 'વિહાર' : 'Vihar',
+          tabBarIcon: ({ color }) => <NavigationIcon size={22} color={color} />,
         }}
       />
       <Tab.Screen
         name="HistoryTab"
         component={SevakHistoryScreen}
         options={{
-          tabBarLabel: language === 'gu' ? 'ઇતિહાસ' : language === 'hi' ? 'इतिहास' : 'History',
+          tabBarLabel: language === 'gu' ? 'ઇતિહાસ' : language === 'hi' ? 'इતિહાસ' : 'History',
           tabBarIcon: ({ color }) => <HistoryIcon size={22} color={color} />,
         }}
       />
@@ -83,7 +86,7 @@ export const SevakNavigator = () => {
         name="ProfileTab"
         component={SevakProfileScreen}
         options={{
-          tabBarLabel: language === 'gu' ? 'પ્રોફાઇલ' : language === 'hi' ? 'प्रोफ़ाइल' : 'Profile',
+          tabBarLabel: language === 'gu' ? 'પ્રોફાઇલ' : language === 'hi' ? 'પ્રોફાઈલ' : 'Profile',
           tabBarIcon: ({ color }) => <UserIcon size={22} color={color} />,
         }}
       />
@@ -91,10 +94,21 @@ export const SevakNavigator = () => {
         name="MoreTab"
         component={SevakMoreScreen}
         options={{
-          tabBarLabel: language === 'gu' ? 'વધુ' : language === 'hi' ? 'अधिक' : 'More',
+          tabBarLabel: language === 'gu' ? 'વધુ' : language === 'hi' ? 'અધિક' : 'More',
           tabBarIcon: ({ color }) => <MenuIcon size={22} color={color} />,
         }}
       />
     </Tab.Navigator>
+  );
+};
+
+export const SevakNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="SevakTabs" component={SevakTabNavigator} />
+      <Stack.Screen name="ChooseRoute" component={ChooseRouteScreen} />
+      <Stack.Screen name="ViharDetails" component={ViharDetailsScreen} />
+      <Stack.Screen name="ActiveVihar" component={ActiveViharScreen} />
+    </Stack.Navigator>
   );
 };

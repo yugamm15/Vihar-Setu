@@ -7,6 +7,41 @@ import { escalationService } from './escalationService';
  */
 export const viharService = {
   /**
+   * Atomic Transactional Start Vihar with Start Gate Verification
+   * Calls PostgreSQL RPC `start_vihar`
+   */
+  async startViharRPC(payload) {
+    try {
+      const { data, error } = await supabase.rpc('start_vihar', {
+        p_client_uuid: payload.client_uuid,
+        p_source_name: payload.source_name,
+        p_source_lat: payload.source_lat,
+        p_source_lng: payload.source_lng,
+        p_dest_name: payload.dest_name,
+        p_dest_lat: payload.dest_lat,
+        p_dest_lng: payload.dest_lng,
+        p_expected_arrival: payload.expected_arrival || null,
+        p_notes: payload.notes || '',
+        p_route_geometry: payload.route_geometry || '',
+        p_total_distance_km: payload.total_distance_km || 0,
+        p_estimated_duration_mins: payload.estimated_duration_mins || 60,
+        p_participant_ids: payload.participant_ids || [],
+        p_device_lat: payload.device_lat,
+        p_device_lng: payload.device_lng,
+        p_accuracy: payload.accuracy,
+        p_fix_time: payload.fix_time,
+        p_is_mock: Boolean(payload.is_mock),
+      });
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (e) {
+      console.warn('[viharService] startViharRPC error:', e?.message || e);
+      return { data: null, error: e };
+    }
+  },
+
+  /**
    * Create a new Vihar (either Immediate ACTIVE or Future PLANNED)
    */
   async createVihar(userId, payload) {
@@ -22,6 +57,8 @@ export const viharService = {
         dest_lng: payload.dest_lng || 72.7758,
         total_distance_km: payload.total_distance_km || 4.5,
         estimated_duration_mins: payload.estimated_duration_mins || 65,
+        city: payload.city || 'Surat',
+        area: payload.area || '',
         status: payload.status || 'PLANNED', // 'PLANNED' | 'ACTIVE'
         safety_status: 'SAFE',
         started_at: payload.status === 'ACTIVE' ? new Date().toISOString() : null,

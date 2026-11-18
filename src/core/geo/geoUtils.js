@@ -88,6 +88,13 @@ export const decodePolyline = (encoded) => {
 };
 
 /**
+ * Decode polyline directly to array of { latitude, longitude }
+ */
+export const decodePolylineLatLng = (encoded) => {
+  return decodePolyline(encoded).map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+};
+
+/**
  * Calculate perpendicular distance from point P to line segment AB in meters
  */
 const perpendicularDistanceToSegment = (pLat, pLon, aLat, aLon, bLat, bLon) => {

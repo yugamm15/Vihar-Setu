@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   filterChip: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, marginRight: spacing.xs },
   selectedChip: { backgroundColor: colors.deepMaroon, borderColor: colors.deepMaroon },
   filterText: { ...typography.caption, color: colors.textPrimary },
-  selectedFilterText: { color: colors.warmIvory, fontWeight: '800' },
+  selectedFilterText: { color: '#FFFFFF', fontWeight: '800' },
   input: { borderWidth: 1, borderColor: colors.cardBorder, borderRadius: borderRadius.sm, padding: spacing.sm, marginTop: spacing.sm, color: colors.textPrimary },
   dateRow: { flexDirection: 'row', gap: spacing.sm },
   dateInput: { flex: 1 },

@@ -252,11 +252,13 @@ export const SevakHomeScreen = ({ navigation }) => {
             <PrimaryButton
               title={activeVihar ? t('home.open_live_vihar') : t('home.start_vihar')}
               variant="saffron"
-              onPress={() =>
-                navigation.navigate('ViharTab', {
-                  openCreateMode: activeVihar ? undefined : 'NOW',
-                })
-              }
+              onPress={() => {
+                if (activeVihar) {
+                  navigation.navigate('ActiveVihar', { vihar: activeVihar });
+                } else {
+                  navigation.navigate('ChooseRoute');
+                }
+              }}
               style={styles.startViharBtn}
             />
           </View>

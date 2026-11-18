@@ -409,6 +409,10 @@ export const SevakViharScreen = ({ navigation, route }) => {
   }, [creationMode, selectedDate, customDate, availableTimePresets.join('|')]);
 
   const handleOpenCreateModal = (mode = 'NOW') => {
+    if (mode === 'NOW') {
+      navigation.navigate('ChooseRoute');
+      return;
+    }
     setCreationMode(mode);
     setIsCreateModalOpen(true);
   };
@@ -470,6 +474,8 @@ export const SevakViharScreen = ({ navigation, route }) => {
       dest_lng: destUpashray.lng,
       total_distance_km: routeEstimate.distanceKm,
       estimated_duration_mins: routeEstimate.durationMinutes,
+      city: destUpashray?.city || profile?.city || 'Surat',
+      area: destUpashray?.area || profile?.area || '',
       notes: `Sadhviji: ${sadhvijiName.trim()} | Date: ${departureDate} | Time: ${selectedTime} | ${viharNotes.trim()}`,
     };
 
