@@ -85,6 +85,31 @@ export const useViharStore = create((set, get) => ({
   },
 
   /**
+   * Update a scheduled Vihar
+   */
+  updateScheduledVihar: async (userId, viharId, payload) => {
+    set({ isLoading: true, error: null });
+    const { data, error } = await viharService.updateScheduledVihar(userId, viharId, payload);
+
+    if (error || !data) {
+      set({
+        isLoading: false,
+        error: error?.message || 'Failed to update scheduled Vihar. Please try again.',
+      });
+      return false;
+    }
+
+    set({
+      scheduledVihars: get().scheduledVihars.map((vihar) =>
+        vihar.id === viharId ? data : vihar
+      ),
+      isLoading: false,
+      error: null,
+    });
+    return true;
+  },
+
+  /**
    * Start a Scheduled Vihar
    */
   startScheduled: async (viharId) => {

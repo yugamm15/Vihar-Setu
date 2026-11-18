@@ -174,6 +174,42 @@ export const viharService = {
   },
 
   /**
+   * Update a Vihar only while it is still scheduled
+   */
+  async updateScheduledVihar(userId, viharId, payload) {
+    try {
+      const { data, error } = await supabase
+        .from('vihars')
+        .update({
+          title: payload.title,
+          source_name: payload.source_name,
+          source_lat: payload.source_lat,
+          source_lng: payload.source_lng,
+          dest_name: payload.dest_name,
+          dest_lat: payload.dest_lat,
+          dest_lng: payload.dest_lng,
+          total_distance_km: payload.total_distance_km,
+          estimated_duration_mins: payload.estimated_duration_mins,
+          city: payload.city || 'Surat',
+          area: payload.area || '',
+          notes: payload.notes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', viharId)
+        .eq('user_id', userId)
+        .eq('status', 'PLANNED')
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (e) {
+      console.warn('[ViharService] updateScheduledVihar error:', e);
+      return { data: null, error: e };
+    }
+  },
+
+  /**
    * Transition a Scheduled Vihar to ACTIVE
    */
   async startScheduledVihar(viharId) {

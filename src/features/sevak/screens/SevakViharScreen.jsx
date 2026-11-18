@@ -93,13 +93,21 @@ const isValidFutureDate = (dateKey) => {
 };
 
 const getScheduledDateTime = (notes = '') => {
-  const dateMatch = notes.match(/Date:\s*([^|]+)/i);
-  const timeMatch = notes.match(/Time:\s*([^|]+)/i);
+  const dateMatch = (notes || '').match(/Date:\s*([^|]+)/i);
+  const timeMatch = (notes || '').match(/Time:\s*([^|]+)/i);
   return {
     date: dateMatch?.[1]?.trim() || 'Tomorrow',
     time: timeMatch?.[1]?.trim() || '05:30 AM',
   };
 };
+
+const getUpashrayForScheduledVihar = (name, latitude, longitude) =>
+  JAIN_UPASHRAYS.find((upashray) =>
+    name?.toLowerCase().startsWith(`${upashray.name} (${upashray.area})`.toLowerCase())
+  ) || JAIN_UPASHRAYS.find(
+    (upashray) =>
+      upashray.lat === Number(latitude) && upashray.lng === Number(longitude)
+  );
 
 export const SevakViharScreen = ({ navigation, route }) => {
   const { user, profile, language } = useAuthStore();
@@ -111,6 +119,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
     loadViharState,
     startImmediateVihar,
     scheduleFutureVihar,
+    updateScheduledVihar,
     startScheduled,
     completeActiveVihar,
     cancelScheduled,
@@ -124,6 +133,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
   const [sosModalVisible, setSosModalVisible] = useState(false);
   const [endModalVisible, setEndModalVisible] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingScheduledVihar, setEditingScheduledVihar] = useState(null);
   const [disarmModalVisible, setDisarmModalVisible] = useState(false);
   const [handoverModalVisible, setHandoverModalVisible] = useState(false);
   const [currentSubVihar, setCurrentSubVihar] = useState(null);
@@ -413,8 +423,51 @@ export const SevakViharScreen = ({ navigation, route }) => {
       navigation.navigate('ChooseRoute');
       return;
     }
+    setEditingScheduledVihar(null);
     setCreationMode(mode);
     setIsCreateModalOpen(true);
+  };
+
+  const handleOpenEditScheduledVihar = (vihar) => {
+    const { date, time } = getScheduledDateTime(vihar.notes);
+    const tomorrow = getLocalDateKey(new Date(Date.now() + 24 * 60 * 60 * 1000));
+    const departureDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : tomorrow;
+    const noteParts = (vihar.notes || '').split('|').map((part) => part.trim());
+    const sadhvijiNote = noteParts.find((part) => /^Sadhviji:/i.test(part));
+
+    setEditingScheduledVihar(vihar);
+    setCreationMode('SCHEDULE');
+    setSelectedDate(
+      departureDate === getLocalDateKey()
+        ? 'Today'
+        : departureDate === tomorrow
+          ? 'Tomorrow'
+          : 'Custom Date'
+    );
+    setCustomDate(departureDate);
+    setSelectedTime(time);
+    if (sadhvijiNote) {
+      setSadhvijiName(sadhvijiNote.replace(/^Sadhviji:\s*/i, ''));
+    }
+    setSourceUpashray(
+      getUpashrayForScheduledVihar(vihar.source_name, vihar.source_lat, vihar.source_lng) ||
+        JAIN_UPASHRAYS[0]
+    );
+    setDestUpashray(
+      getUpashrayForScheduledVihar(vihar.dest_name, vihar.dest_lat, vihar.dest_lng) ||
+        JAIN_UPASHRAYS[2]
+    );
+    setViharNotes(
+      noteParts
+        .filter((part) => !/^(Sadhviji|Date|Time):/i.test(part))
+        .join(' | ')
+    );
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setEditingScheduledVihar(null);
   };
 
   useEffect(() => {
@@ -479,10 +532,33 @@ export const SevakViharScreen = ({ navigation, route }) => {
       notes: `Sadhviji: ${sadhvijiName.trim()} | Date: ${departureDate} | Time: ${selectedTime} | ${viharNotes.trim()}`,
     };
 
-    if (creationMode === 'NOW') {
+    if (editingScheduledVihar) {
+      const success = await updateScheduledVihar(user.id, editingScheduledVihar.id, payload);
+      if (success) {
+        handleCloseCreateModal();
+        const alarmInfo = alarmService.getAlarmTime(departureDate, selectedTime);
+        showAlert({
+          type: 'SUCCESS',
+          title: 'Vihar Updated',
+          message: `Vihar updated for ${selectedDate} at ${selectedTime}.\n\n30-Minute Wake-up Alarm set for ${alarmInfo.alarmTimeString}.`,
+          confirmText: 'Done',
+          confirmVariant: 'saffron',
+        });
+      } else {
+        showAlert({
+          type: 'ERROR',
+          title: 'Vihar Update Failed',
+          message:
+            useViharStore.getState().error ||
+            'Failed to update scheduled Vihar. Please try again.',
+          confirmText: t('common.confirm'),
+          confirmVariant: 'maroon',
+        });
+      }
+    } else if (creationMode === 'NOW') {
       const success = await startImmediateVihar(user.id, payload);
       if (success) {
-        setIsCreateModalOpen(false);
+        handleCloseCreateModal();
         showAlert({
           type: 'JINENDRA',
           title: 'Jai Jinendra',
@@ -503,7 +579,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
     } else {
       const success = await scheduleFutureVihar(user.id, payload);
       if (success) {
-        setIsCreateModalOpen(false);
+        handleCloseCreateModal();
         const alarmInfo = alarmService.getAlarmTime(departureDate, selectedTime);
         showAlert({
           type: 'SUCCESS',
@@ -1110,12 +1186,26 @@ export const SevakViharScreen = ({ navigation, route }) => {
                             Upcoming Vihar
                           </Text>
                         </View>
-                        <TouchableOpacity
-                          onPress={() => cancelScheduled(vihar.id)}
-                          style={styles.cancelChip}
-                        >
-                          <Text style={styles.cancelChipText}>Cancel</Text>
-                        </TouchableOpacity>
+                        <View style={styles.scheduledActionsRow}>
+                          <TouchableOpacity
+                            onPress={() => handleOpenEditScheduledVihar(vihar)}
+                            style={styles.editButton}
+                            accessibilityRole="button"
+                            accessibilityLabel="Edit scheduled Vihar"
+                            activeOpacity={0.75}
+                          >
+                            <Text style={styles.editButtonText}>Edit</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => cancelScheduled(vihar.id)}
+                            style={styles.cancelButton}
+                            accessibilityRole="button"
+                            accessibilityLabel="Cancel scheduled Vihar"
+                            activeOpacity={0.75}
+                          >
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
 
                       <Text style={styles.scheduledRouteText}>
@@ -1169,7 +1259,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
         visible={isCreateModalOpen}
         animationType="slide"
         transparent
-        onRequestClose={() => setIsCreateModalOpen(false)}
+        onRequestClose={handleCloseCreateModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1178,12 +1268,14 @@ export const SevakViharScreen = ({ navigation, route }) => {
           <View style={[styles.modalCard, shadows.elevated]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {creationMode === 'NOW'
-                  ? t('vihar.start_now_title')
-                  : t('vihar.schedule_title')}
+                {editingScheduledVihar
+                  ? 'Edit Scheduled Vihar'
+                  : creationMode === 'NOW'
+                    ? t('vihar.start_now_title')
+                    : t('vihar.schedule_title')}
               </Text>
               <TouchableOpacity
-                onPress={() => setIsCreateModalOpen(false)}
+                onPress={handleCloseCreateModal}
                 style={styles.closeBtn}
               >
                 <Text style={styles.closeBtnText}>{t('vihar.cancel')}</Text>
@@ -1191,41 +1283,43 @@ export const SevakViharScreen = ({ navigation, route }) => {
             </View>
 
             {/* Mode Switcher */}
-            <View style={styles.modeTabsRow}>
-              <TouchableOpacity
-                onPress={() => setCreationMode('NOW')}
-                style={[
-                  styles.modeTab,
-                  creationMode === 'NOW' && styles.modeTabActive,
-                ]}
-              >
-                <Text
+            {!editingScheduledVihar && (
+              <View style={styles.modeTabsRow}>
+                <TouchableOpacity
+                  onPress={() => setCreationMode('NOW')}
                   style={[
-                    styles.modeTabText,
-                    creationMode === 'NOW' && styles.modeTabTextActive,
+                    styles.modeTab,
+                    creationMode === 'NOW' && styles.modeTabActive,
                   ]}
                 >
-                  {t('vihar.start_now_tab')}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.modeTabText,
+                      creationMode === 'NOW' && styles.modeTabTextActive,
+                    ]}
+                  >
+                    {t('vihar.start_now_tab')}
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => setCreationMode('SCHEDULE')}
-                style={[
-                  styles.modeTab,
-                  creationMode === 'SCHEDULE' && styles.modeTabActive,
-                ]}
-              >
-                <Text
+                <TouchableOpacity
+                  onPress={() => setCreationMode('SCHEDULE')}
                   style={[
-                    styles.modeTabText,
-                    creationMode === 'SCHEDULE' && styles.modeTabTextActive,
+                    styles.modeTab,
+                    creationMode === 'SCHEDULE' && styles.modeTabActive,
                   ]}
                 >
-                  {t('vihar.schedule_later_tab')}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                  <Text
+                    style={[
+                      styles.modeTabText,
+                      creationMode === 'SCHEDULE' && styles.modeTabTextActive,
+                    ]}
+                  >
+                    {t('vihar.schedule_later_tab')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
               {/* Date & Time (if Scheduled) */}
@@ -1234,6 +1328,7 @@ export const SevakViharScreen = ({ navigation, route }) => {
                   <Text style={styles.inputLabel}>{t('vihar.departure_date')}</Text>
                   <View style={styles.chipsRow}>
                     {[
+                      ['Today', t('vihar.today')],
                       ['Tomorrow', t('vihar.tomorrow')],
                       ['Custom Date', t('vihar.custom_date')],
                     ].map(([value, label]) => (
@@ -1408,14 +1503,16 @@ export const SevakViharScreen = ({ navigation, route }) => {
               <View style={styles.modalBtnRow}>
                 <SecondaryButton
                   title={t('vihar.cancel')}
-                  onPress={() => setIsCreateModalOpen(false)}
+                  onPress={handleCloseCreateModal}
                   style={styles.modalCancelBtn}
                 />
                 <PrimaryButton
                   title={
-                    creationMode === 'NOW'
-                      ? t('vihar.start_action')
-                      : t('vihar.schedule_action')
+                    editingScheduledVihar
+                      ? 'Save Changes'
+                      : creationMode === 'NOW'
+                        ? t('vihar.start_action')
+                        : t('vihar.schedule_action')
                   }
                   variant="saffron"
                   loading={isLoading}
@@ -2075,10 +2172,37 @@ const styles = StyleSheet.create({
     color: colors.deepMaroon,
     fontWeight: '700',
   },
-  cancelChip: {
-    padding: spacing.xs,
+  scheduledActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  cancelChipText: {
+  editButton: {
+    minWidth: 60,
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.deepMaroon,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editButtonText: {
+    ...typography.caption,
+    color: colors.white,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    minWidth: 72,
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.statusEmergency,
+    backgroundColor: colors.statusEmergencyBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
     ...typography.caption,
     color: colors.statusEmergency,
     fontWeight: '700',

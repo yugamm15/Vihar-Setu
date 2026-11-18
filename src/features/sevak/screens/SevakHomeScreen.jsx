@@ -330,16 +330,18 @@ export const SevakHomeScreen = ({ navigation }) => {
               <Text style={styles.homeHelplineBtnText}>{t('home.abhayam')}</Text>
             </TouchableOpacity>
 
-            {stats.deskPhone ? (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => Linking.openURL(`tel:${stats.deskPhone}`)}
-                style={[styles.homeHelplineBtn, styles.deskBg]}
-              >
-                <PhoneIcon size={14} color="#FFFFFF" />
-                <Text style={styles.homeHelplineBtnText}>{t('home.vihar_desk')}</Text>
-              </TouchableOpacity>
-            ) : null}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() =>
+                Linking.openURL(`tel:${stats.deskPhone || '+919876500000'}`)
+              }
+              style={[styles.homeHelplineBtn, styles.deskBg]}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.vihar_desk')}
+            >
+              <PhoneIcon size={14} color="#FFFFFF" />
+              <Text style={styles.homeHelplineBtnText}>{t('home.vihar_desk')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -609,7 +611,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#4A148C',
   },
   deskBg: {
-    backgroundColor: '#E65100',
+    backgroundColor: colors.statusSafe,
   },
   homeHelplineBtnText: {
     fontSize: 11,
